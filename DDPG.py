@@ -69,11 +69,7 @@ class DDPG:
 		# action = self.action_max *
 		pass
 
-	def normal_network_update(self):
-		pass
-
-	def soft_network_update(self):
-		pass
+	def soft_update(self)
 
 	def train(self):
 		for episode in range(self.num_of_episodes):
