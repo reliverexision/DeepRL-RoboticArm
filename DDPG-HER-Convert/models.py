@@ -27,6 +27,13 @@ class Actor:
 
 		return t_network
 
+	@staticmethod
+	def soft_update_network(actor, actor_target, tau):
+		theta_mu = actor.network.get_weights()
+		theta_muprime = actor_target.network.get_weights()
+
+		actor_target.network.set_weights(tau*theta_mu + (1-tau)*theta_muprime)
+
 class Critic:
 	def __init__(self, input_shape, layer_sizes=None, hidden_activation='relu', output_activation='tanh'):
 		if layer_sizes == None:
@@ -44,6 +51,14 @@ class Critic:
 		t_network.network.set_weights(self.network.get_weights())
 
 		return t_network
+
+	@staticmethod
+	def soft_update_network(critic, critic_target, tau):
+		theta_Q = critic.network.get_weights()
+		theta_Qprime = critic_target.network.get_weights()
+
+		critic_target.network.set_weights(tau*theta_Q + (1-tau)*theta_Qprime)
+
 
 if __name__ == '__main__':
 	a = Actor()

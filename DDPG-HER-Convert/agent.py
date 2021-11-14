@@ -24,7 +24,7 @@ class Agent:
 
 		# Initialise actor and critic networks
 		actor_input_shape = (num_states + num_goals)
-		critic_input_shape = (num_states + num_goals + num_actions) 
+		critic_input_shape = (num_states + num_goals + num_actions)
 		self.actor = Actor(actor_input_shape, num_actions)
 		self.critic = Critic(critic_input_shape)
 
@@ -36,37 +36,41 @@ class Agent:
 		self.memory = Memory(capacity, k_future, env)
 
 		# Optimizer for each network
-		actor_optimizer = tf.keras.optimizers.Adam(learning_rate=actor_lr)
-		critic_optimizer = tf.keras.optimizers.Adam(learning_rate=critic_lr)
+		self.actor_optimizer = tf.keras.optimizers.Adam(learning_rate=actor_lr)
+		self.critic_optimizer = tf.keras.optimizers.Adam(learning_rate=critic_lr)
 
-	def choose_action(self):
+	def choose_action(self, state, goal, train_mode=True):
 		pass
 
-	def store_transition(self):
-		pass
-
-	@staticmethod
-	def hard_update_networks(local_model, target_model):
-		pass
-
-	@staticmethod
-	def soft_update_networks(local_model, target_model, tau=0.05):
-		pass
+	def store_transition(self, mini_batch):
+		for batch in mini_batch:
+			self.memory.add(batch)
+		self._update_normalizer(mini_batch)
 
 	def train(self):
 		pass
 
+	# Save actor-critic networks to a file
 	def save_weights(self):
-		pass
+		actor_filepath = "FetchPickAndPlace-Actor"
+		critic_filepath = "FetchPickAndPlace-Critic"
 
+	# Load actor-critic networks from a file
 	def load_weights(self):
-		pass
+		# self.actor = tf.keras.models.load_model("FetchPickAndPlace-Actor")
+		# self.critic = tf.keras.models.load_model("FetchPickAndPlace-Critic")
 
 	def set_to_eval_mode(self):
 		pass
 
 	def update_networks(self):
-		pass
+		Actor.soft_update_network(self.actor, self.actor_target, self.tau)
+		Critic.soft_update_network(self.critic, self.critic_target, self.tau)
 
 	def _update_normalizer(self, mini_batch):
-		pass
+		states, goals = self.memory.sample_for_normalization(mini_batch)
+
+        self.state_normalizer.update(states)
+        self.goal_normalizer.update(goals)
+        self.state_normalizer.recompute_stats()
+        self.goal_normalizer.recompute_stats()
