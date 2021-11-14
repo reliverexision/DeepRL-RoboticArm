@@ -39,8 +39,26 @@ class Agent:
 		self.actor_optimizer = tf.keras.optimizers.Adam(learning_rate=actor_lr)
 		self.critic_optimizer = tf.keras.optimizers.Adam(learning_rate=critic_lr)
 
+		self.state_normalizer = Normalizer(self.num_states[0], default_clip_range=5)
+		self.goal_normalizer = Normalizer(self.num_goals, default_clip_range=5)
+
 	def choose_action(self, state, goal, train_mode=True):
-		pass
+		state = self.state_normalizer.normalize(state)
+		goal = self.goal_normalizer.normalize(goal)
+		state = np.expand_dims(state, axis=0)
+		goal = np.expand_dims(goal, axis=0)
+
+		
+
+		if train_mode:
+			action += 0.2 * np.random.randn(self.num_actions)
+			action = np.clip(action, self.action_bounds[0], self.action_bounds[1])
+
+			random_actions = np.random.uniform(low=self.action_bounds[0], high=self.action_bounds[1],
+											size=self.num_actions)
+			action += np.random.binomial(1, 0.3, 1)[0] * (random_actions - action)
+
+		return action
 
 	def store_transition(self, mini_batch):
 		for batch in mini_batch:
@@ -50,15 +68,14 @@ class Agent:
 	def train(self):
 		pass
 
-	# Save actor-critic networks to a file
+	# Save actor network to a file
 	def save_weights(self):
-		actor_filepath = "FetchPickAndPlace-Actor"
-		critic_filepath = "FetchPickAndPlace-Critic"
+		actor_filepath = "FetchPickAndPlaceActor"
+		# self.actor.network.save(actor_filepath)
 
-	# Load actor-critic networks from a file
+	# Load actor network from a file
 	def load_weights(self):
-		# self.actor = tf.keras.models.load_model("FetchPickAndPlace-Actor")
-		# self.critic = tf.keras.models.load_model("FetchPickAndPlace-Critic")
+		# self.actor.network = tf.keras.models.load_model("FetchPickAndPlaceActor")
 
 	def set_to_eval_mode(self):
 		pass

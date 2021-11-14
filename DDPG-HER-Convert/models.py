@@ -40,7 +40,7 @@ class Critic:
 			layer_sizes = (512, 128, 1)
 
 		self.input_shape = input_shape
-		self.num_actions = num_actions
+		self.layer_sizes = layer_sizes
 		self.hidden_activation = hidden_activation
 		self.output_activation = output_activation
 
