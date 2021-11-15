@@ -91,6 +91,6 @@ if __name__ == '__main__':
 	Zp = (Z).reshape(1,-1)
 	print("Zp: {}".format(Zp))
 
-	print(type(a(Zp)))
+	print(0.5 * a(Zp))
 	print(a.predict((Z).reshape(1,-1))[0])
 	print(a.predict(Z)[0])

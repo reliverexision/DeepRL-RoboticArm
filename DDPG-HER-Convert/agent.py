@@ -74,6 +74,7 @@ class Agent:
         goals = self.goal_normalizer.normalize(goals)
         inputs = np.concatenate([states, goals], axis=1)
         next_inputs = np.concatenate([next_states, goals], axis=1)
+        inputsT = tf.convert_to_tensor(inputs)
 
         # Might be needed for switching devices cpu <-> cuda
         # inputs = torch.Tensor(inputs).to(self.device)
@@ -84,12 +85,17 @@ class Agent:
         # tf.GradientTape() is to enable automatic differentiation
 
         # Actor optimization 
-        with tf.GradientTape() as tape:
-    		target_q = self.critic_target()
+        with tf.GradientTape() as tape2:
+    		Aprime = action_bounds[1] * self.actor(inputs)
+    		temp = tf.keras.layers.concatenate([inputsT, Aprime], axis=1)
+    		q_eval = self.critic(temp)
+    		actor_loss = -tf.reduce_mean(q_eval)
+    		mu_grads = tape2.gradient(actor_loss, self.actor.trainable_variables)
+		self.actor_optimizer.apply_gradients(zip(mu_grads, self.actor.trainable_variables))
 
 		# Critic optimization
 		with tf.GradientTape() as tape:
-			next_a = action_bounds[1] * actor_target(next_inputs)
+			next_a = action_bounds[1] * self.actor_target(next_inputs)
 			temp = np.concatenate((next_inputs, next_a), axis=1)
 			target_q = rewards + self.gamma * self.critic_target(temp)
 			temp2 = np.concatenate((inputs, actions), axis=1)
@@ -97,12 +103,27 @@ class Agent:
 			critic_loss = tf.reduce_mean((q_eval - target_q)**2)
 			q_grads = tape.gradient(critic_loss, self.critic.trainable_variables)
 		self.critic_optimizer.apply_gradients(zip(q_grads, self.critic.trainable_variables))
-		
+
+		# Returns the individual values of actor_loss and critic_loss
+		return actor_loss.numpy(), critic_loss.numpy()
 
 	# Save actor network to a file
 	def save_weights(self):
-		actor_filepath = "FetchPickAndPlaceActor"
+		save_path = "FetchPickAndPlaceActor"
+		model = self.actor.network.get_weights()
+		checkpoint = tf.train.Checkpoint(models=model, 
+										 state_normalizer_mean=self.state_normalizer.mean,
+										 state_normalizer_std=self.state_normalizer.std,
+										 goal_normalizer_mean=self.goal_normalizer.mean,
+										 goal_normalizer_std=self.goal_normalizer.std)
 		# self.actor.network.save(actor_filepath)
+
+		torch.save({"actor_state_dict": self.actor.state_dict(),
+                    "state_normalizer_mean": self.state_normalizer.mean,
+                    "state_normalizer_std": self.state_normalizer.std,
+                    "goal_normalizer_mean": self.goal_normalizer.mean,
+                    "goal_normalizer_std": self.goal_normalizer.std}, "FetchPickAndPlace.pth")
+
 
 	# Load actor network from a file
 	def load_weights(self):
