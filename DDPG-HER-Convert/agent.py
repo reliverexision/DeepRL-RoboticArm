@@ -47,8 +47,9 @@ class Agent:
 		goal = self.goal_normalizer.normalize(goal)
 		state = np.expand_dims(state, axis=0)
 		goal = np.expand_dims(goal, axis=0)
+		x = np.concatenate([state, goal], axis=1)
 
-		
+		action = self.actor.predict(x)
 
 		if train_mode:
 			action += 0.2 * np.random.randn(self.num_actions)
@@ -66,7 +67,37 @@ class Agent:
 		self._update_normalizer(mini_batch)
 
 	def train(self):
-		pass
+		states, actions, rewards, next_states, goals = self.memory.sample(self.batch_size)
+
+		states = self.state_normalizer.normalize(states)
+        next_states = self.state_normalizer.normalize(next_states)
+        goals = self.goal_normalizer.normalize(goals)
+        inputs = np.concatenate([states, goals], axis=1)
+        next_inputs = np.concatenate([next_states, goals], axis=1)
+
+        # Might be needed for switching devices cpu <-> cuda
+        # inputs = torch.Tensor(inputs).to(self.device)
+        # rewards = torch.Tensor(rewards).to(self.device)
+        # next_inputs = torch.Tensor(next_inputs).to(self.device)
+        # actions = torch.Tensor(actions).to(self.device)
+
+        # tf.GradientTape() is to enable automatic differentiation
+
+        # Actor optimization 
+        with tf.GradientTape() as tape:
+    		target_q = self.critic_target()
+
+		# Critic optimization
+		with tf.GradientTape() as tape:
+			next_a = action_bounds[1] * actor_target(next_inputs)
+			temp = np.concatenate((next_inputs, next_a), axis=1)
+			target_q = rewards + self.gamma * self.critic_target(temp)
+			temp2 = np.concatenate((inputs, actions), axis=1)
+			q_eval = self.critic(temp2)
+			critic_loss = tf.reduce_mean((q_eval - target_q)**2)
+			q_grads = tape.gradient(critic_loss, self.critic.trainable_variables)
+		self.critic_optimizer.apply_gradients(zip(q_grads, self.critic.trainable_variables))
+		
 
 	# Save actor network to a file
 	def save_weights(self):

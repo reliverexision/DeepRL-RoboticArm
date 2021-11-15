@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 def ANN(input_shape, layer_sizes, hidden_activation='relu', output_activation=None):
 	model = tf.keras.Sequential()
@@ -20,6 +21,14 @@ class Actor:
 		self.output_activation = output_activation
 
 		self.network = ANN(input_shape, list(layer_sizes), hidden_activation, output_activation)
+
+	# Returns tensor object
+	def __call__(self, x):
+		return self.network(x)
+
+	# Returns numpy array
+	def predict(self, x):
+		return self.network.predict(x)
 
 	def init_target_network(self):
 		t_network = Actor(self.input_shape, self.num_actions, self.layer_sizes, self.hidden_activation, self.output_activation)
@@ -46,6 +55,14 @@ class Critic:
 
 		self.network = ANN(input_shape, list(layer_sizes), hidden_activation, output_activation)
 
+	# Returns tensor object
+	def __call__(self, x):
+		return self.network(x)
+
+	# Returns numpy array
+	def predict(self, x):
+		return self.network.predict(x)
+
 	def init_target_network(self):
 		t_network = Actor(self.input_shape, self.layer_sizes, self.hidden_activation, self.output_activation)
 		t_network.network.set_weights(self.network.get_weights())
@@ -61,8 +78,19 @@ class Critic:
 
 
 if __name__ == '__main__':
-	a = Actor()
+	a = Actor(5, 2)
 	t_a = a.init_target_network()
 
-	print(a.network.get_weights())
-	print(t_a.network.get_weights())
+	X = np.random.randn(2)
+	Y = np.random.randn(3)
+	Xp = np.expand_dims(X, axis=0)
+	Yp = np.expand_dims(Y, axis=0)
+	print("X: {}, Xp: {}\n Y: {}, Yp: {}".format(X,Xp,Y,Yp))
+	Z = np.concatenate([Xp,Yp],axis=1)
+	print("X: {}, Y: {}\n Z:{}".format(Xp, Yp, Z))
+	Zp = (Z).reshape(1,-1)
+	print("Zp: {}".format(Zp))
+
+	print(type(a(Zp)))
+	print(a.predict((Z).reshape(1,-1))[0])
+	print(a.predict(Z)[0])
