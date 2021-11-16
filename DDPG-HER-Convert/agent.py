@@ -188,21 +188,16 @@ def _set_flat_params(network, flat_params):
 		layer = network.get_layer(index = i)
 		lsize = layer.output_shape[1]
 		# print(lsize)
-		a = layer.get_weights()
+		a = np.asarray(layer.get_weights())
 		print(a.shape)
+		print(a)
 		print(layer.output_shape)
-		# print(layer.get_weights())
-		# print(type(flat_params))
-		new_params = flat_params[pointer:pointer + lsize]
+		print(type(new_params))
 		print(new_params)
-		new_paramsT = tf.convert_to_tensor(new_params)
-		print(new_paramsT)
-		print(new_paramsT.shape)
-		new_params = new_params.reshape(0, lsize)
-		print(new_params)
-			# .reshape(layer.output_shape))
 		layer.set_weights(new_params)
 		pointer += lsize
+
+	for param in 
 
 def _set_flat_grads(network, flat_grads):
     pointer = 0

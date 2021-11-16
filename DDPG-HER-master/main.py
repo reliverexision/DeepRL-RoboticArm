@@ -15,9 +15,9 @@ import torch
 
 ENV_NAME = "FetchPickAndPlace-v1"
 INTRO = False
-Train = True
-Play_FLAG = False
-MAX_EPOCHS = 50
+Train = False
+Play_FLAG = True 
+MAX_EPOCHS = 300
 MAX_CYCLES = 50
 num_updates = 40
 MAX_EPISODES = 2
@@ -112,7 +112,6 @@ agent = Agent(n_states=state_shape,
               k_future=k_future,
               env=dc(env))
 if Train:
-
     t_success_rate = []
     total_ac_loss = []
     total_cr_loss = []
@@ -145,7 +144,7 @@ if Train:
                 for t in range(50):
                     action = agent.choose_action(state, desired_goal)
                     next_env_dict, reward, done, info = env.step(action)
-
+                    #env.render()
                     next_state = next_env_dict["observation"]
                     next_achieved_goal = next_env_dict["achieved_goal"]
                     next_desired_goal = next_env_dict["desired_goal"]
@@ -207,5 +206,6 @@ if Train:
         plt.show()
 
 elif Play_FLAG:
-    player = Play(env, agent, max_episode=100)
+    env.render()
+    player = Play(env, agent, max_episode=20)
     player.evaluate()

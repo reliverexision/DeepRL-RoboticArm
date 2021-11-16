@@ -103,3 +103,7 @@ if __name__ == '__main__':
 
 
 	print(a.summary())
+
+	for i in range(len(a.layers)):
+		layer = a.get_layer(index = i)
+		print(layer.get_weights())

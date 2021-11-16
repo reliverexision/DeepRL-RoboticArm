@@ -180,8 +180,6 @@ class Agent:
 
 def _get_flat_params_or_grads(network, mode='params'):
     attr = 'data' if mode == 'params' else 'grad'
-    for param in network.parameters():
-        print(getattr(param,'grad'))
     return np.concatenate([getattr(param, attr).cpu().numpy().flatten() for param in network.parameters()])
 
 
