@@ -162,9 +162,9 @@ class Agent:
 	@staticmethod
 	def sync_networks(network):
 		comm = MPI.COMM_WORLD
-		flat_params = _get_flat_params_or_grads(network, mode='params')
+		flat_params = _get_flat_params(network)
 		comm.Bcast(flat_params, root=0)
-		_set_flat_params_or_grads(network, flat_params, mode='params')
+		_set_flat_params(network, flat_params)
 
 	'''
 	@staticmethod
@@ -182,18 +182,22 @@ def _get_flat_params(network):
 # def _get_flat_grads(network):
 # 	return np.concatenate([param.flatten() for param in network.get_weights()])
 
-def _set_flat_params_or_grads(network, flat_params, mode='params'):
-	attr = 'data' if mode == 'params' else 'grad'
+def _set_flat_params(network, flat_params):
 	pointer = 0
 	for i in range(len(network.layers)):
 		layer = network.get_layer(index = i)
 		lsize = layer.output_shape[1]
-		print(lsize)
-		print(layer.output)
-		print(layer.get_weights())
-		print(type(flat_params))
+		# print(lsize)
+		a = layer.get_weights()
+		print(a.shape)
+		print(layer.output_shape)
+		# print(layer.get_weights())
+		# print(type(flat_params))
 		new_params = flat_params[pointer:pointer + lsize]
 		print(new_params)
+		new_paramsT = tf.convert_to_tensor(new_params)
+		print(new_paramsT)
+		print(new_paramsT.shape)
 		new_params = new_params.reshape(0, lsize)
 		print(new_params)
 			# .reshape(layer.output_shape))
