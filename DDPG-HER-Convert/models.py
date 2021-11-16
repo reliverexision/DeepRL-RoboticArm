@@ -28,7 +28,7 @@ class Actor:
 
 	# Returns numpy array
 	def predict(self, x):
-		return self.network.predict(x)
+		return self.network.predict(x).reshape(self.num_actions)
 
 	def init_target_network(self):
 		t_network = Actor(self.input_shape, self.num_actions, self.layer_sizes, self.hidden_activation, self.output_activation)
@@ -38,8 +38,8 @@ class Actor:
 
 	@staticmethod
 	def soft_update_network(actor, actor_target, tau):
-		theta_mu = actor.network.get_weights()
-		theta_muprime = actor_target.network.get_weights()
+		theta_mu = np.asarray(actor.network.get_weights())
+		theta_muprime = np.asarray(actor_target.network.get_weights())
 
 		actor_target.network.set_weights(tau*theta_mu + (1-tau)*theta_muprime)
 
@@ -60,37 +60,46 @@ class Critic:
 		return self.network(x)
 
 	# Returns numpy array
-	def predict(self, x):
-		return self.network.predict(x)
+	def predict(self, x, a):
+		XA = np.concatenate((x, a), axis=1)
+		return self.network.predict(x).reshape(1)
 
 	def init_target_network(self):
-		t_network = Actor(self.input_shape, self.layer_sizes, self.hidden_activation, self.output_activation)
+		t_network = Critic(self.input_shape, self.layer_sizes, self.hidden_activation, self.output_activation)
 		t_network.network.set_weights(self.network.get_weights())
 
 		return t_network
 
 	@staticmethod
 	def soft_update_network(critic, critic_target, tau):
-		theta_Q = critic.network.get_weights()
-		theta_Qprime = critic_target.network.get_weights()
+		theta_Q = np.asarray(critic.network.get_weights())
+		theta_Qprime = np.asarray(critic_target.network.get_weights())
 
 		critic_target.network.set_weights(tau*theta_Q + (1-tau)*theta_Qprime)
 
 
 if __name__ == '__main__':
-	a = Actor(5, 2)
-	t_a = a.init_target_network()
+	X = 2
+	layer_sizes = [2,2,2]
 
-	X = np.random.randn(2)
-	Y = np.random.randn(3)
-	Xp = np.expand_dims(X, axis=0)
-	Yp = np.expand_dims(Y, axis=0)
-	print("X: {}, Xp: {}\n Y: {}, Yp: {}".format(X,Xp,Y,Yp))
-	Z = np.concatenate([Xp,Yp],axis=1)
-	print("X: {}, Y: {}\n Z:{}".format(Xp, Yp, Z))
-	Zp = (Z).reshape(1,-1)
-	print("Zp: {}".format(Zp))
+	a = ANN(X, layer_sizes, output_activation='tanh')
 
-	print(0.5 * a(Zp))
-	print(a.predict((Z).reshape(1,-1))[0])
-	print(a.predict(Z)[0])
+	# print(len(a.layers))
+
+	# for i in range(len(a.layers)):
+	# 	X = a.get_layer(index = i)
+	# 	print(X.get_weights())
+	# 	# param = param
+	# 	print("\n\n")
+	# 	print(len(X.output_shape))
+
+	# print(np.concatenate([param.flatten() for param in a.get_weights()]))
+
+	i = 0
+	for param in a.get_weights():
+		print(i+1)
+		i += 1
+		print(param)
+
+
+	print(a.summary())

@@ -1,14 +1,13 @@
 import tensorflow as tf
 import numpy as np
 from models import Actor, Critic
-from replay_buffer import buffer
 from memory import Memory
 from mpi4py import MPI
 from normalizer import Normalizer
 
 class Agent:
 	def __init__(self, num_states, num_actions, num_goals, action_bounds, mem_size, env, k_future, batch_size, 
-				action_size=1, tau=0.05, gamma=0.99, actor_lr=1e-3, critic_lr=1e-4):
+				action_size=1, tau=0.05, gamma=0.98, actor_lr=1e-3, critic_lr=1e-4):
 		self.num_states    = num_states
 		self.num_actions   = num_actions
 		self.num_goals     = num_goals
@@ -24,10 +23,13 @@ class Agent:
 		self.critic_lr     = critic_lr
 
 		# Initialise actor and critic networks
-		actor_input_shape  = (num_states + num_goals)
-		critic_input_shape = (num_states + num_goals + num_actions)
+		actor_input_shape  = (num_states[0] + num_goals)
+		critic_input_shape = (num_states[0] + num_goals + num_actions)
 		self.actor         = Actor(actor_input_shape, num_actions)
 		self.critic        = Critic(critic_input_shape)
+
+		self.sync_networks(self.actor.network)
+		self.sync_networks(self.critic.network)
 
 		# Initialise actor and critic target networks that are first synced to the main networks
 		self.actor_target  = self.actor.init_target_network()
@@ -77,22 +79,17 @@ class Agent:
 		next_inputs = np.concatenate([next_states, goals], axis=1)
 		inputsT = tf.convert_to_tensor(inputs)
 
-        # Might be needed for switching devices cpu <-> cuda
-        # inputs = torch.Tensor(inputs).to(self.device)
-        # rewards = torch.Tensor(rewards).to(self.device)
-        # next_inputs = torch.Tensor(next_inputs).to(self.device)
-        # actions = torch.Tensor(actions).to(self.device)
-
+		'''
         # tf.GradientTape() is to enable automatic differentiation
-
         # Actor optimization 
 		with tf.GradientTape() as tape2:
 			Aprime = self.action_bounds[1] * self.actor(inputs)
 			temp = tf.keras.layers.concatenate([inputsT, Aprime], axis=1)
 			q_eval = self.critic(temp)
 			actor_loss = -tf.reduce_mean(q_eval)
-			mu_grads = tape2.gradient(actor_loss, self.actor.trainable_variables)
-		self.actor_optimizer.apply_gradients(zip(mu_grads, self.actor.trainable_variables))
+			mu_grads = tape2.gradient(actor_loss, self.actor.network.trainable_variables)
+		self.actor_optimizer.apply_gradients(zip(mu_grads, self.actor.network.trainable_variables))
+		# self.sync_grads(self.actor.network)
 
 		# Critic optimization
 		with tf.GradientTape() as tape:
@@ -102,36 +99,44 @@ class Agent:
 			temp2 = np.concatenate((inputs, actions), axis=1)
 			q_eval = self.critic(temp2)
 			critic_loss = tf.reduce_mean((q_eval - target_q)**2)
-			q_grads = tape.gradient(critic_loss, self.critic.trainable_variables)
-		self.critic_optimizer.apply_gradients(zip(q_grads, self.critic.trainable_variables))
+			q_grads = tape.gradient(critic_loss, self.critic.network.trainable_variables)
+		self.critic_optimizer.apply_gradients(zip(q_grads, self.critic.network.trainable_variables))
+		# self.sync_grads(self.critic.network)
+		'''
+
+		target_q = self.critic_target.predict(next_inputs, self.actor_target.predict(next_inputs))
+		target_returns = rewards + self.gamma * target_q
+		target_returns = tf.clip_by_value(target_returns, -1 / (1 - self.gamma), 0)
+
+		with tf.GradientTape() as tape2:
+			a = self.actor(inputs)
+			actor_loss = tf.reduce_mean((-self.critic(inputs,a)))
+			actor_loss += tf.reduce_mean(a**2)
+			mu_grads = tape2.gradient(actor_loss, self.actor.network.trainable_variables)
+		self.sync_grads(self.actor.network)
+		self.actor_optimizer.apply_gradients(zip(mu_grads, self.actor.network.trainable_variables))
+
+		with tf.GradientTape() as tape:
+			q_eval = self.critic(inputs, actions)
+			critic_loss = tf.reduce_mean((target_returns - q_eval)**2)
+			q_grads = tape.gradient(critic_loss, self.critic.network.trainable_variables)
+		self.sync_grads(self.critic.network)
+		self.critic_optimizer.apply_gradients(zip(q_grads, self.critic.network.trainable_variables))
 
 		# Returns the individual values of actor_loss and critic_loss
 		return actor_loss.numpy(), critic_loss.numpy()
 
 	# Save actor network to a file
 	def save_weights(self):
-		save_path = "FetchPickAndPlaceActor"
-		model = self.actor.network.get_weights()
-		checkpoint = tf.train.Checkpoint(models=model, 
-										 state_normalizer_mean=self.state_normalizer.mean,
-										 state_normalizer_std=self.state_normalizer.std,
-										 goal_normalizer_mean=self.goal_normalizer.mean,
-										 goal_normalizer_std=self.goal_normalizer.std)
-		# self.actor.network.save(actor_filepath)
+		pass
+		# save_path = "FetchPickAndPlaceActor"
+		# model = self.actor.network.get_weights()
+		# checkpoint = tf.train.Checkpoint(models=model, 
+		# 								 state_normalizer_mean=self.state_normalizer.mean,
+		# 								 state_normalizer_std=self.state_normalizer.std,
+		# 								 goal_normalizer_mean=self.goal_normalizer.mean,
+		# 								 goal_normalizer_std=self.goal_normalizer.std)
 
-		# torch.save({"actor_state_dict": self.actor.state_dict(),
-        #             "state_normalizer_mean": self.state_normalizer.mean,
-        #             "state_normalizer_std": self.state_normalizer.std,
-        #             "goal_normalizer_mean": self.goal_normalizer.mean,
-        #             "goal_normalizer_std": self.goal_normalizer.std}, "FetchPickAndPlace.pth")
-
-		tf.keras.models.save_model({"actor_state_dict": self.actor.state_dict(),
-                                    "state_normalizer_mean": self.state_normalizer.mean,
-                                    "state_normalizer_std": self.state_normalizer.std,
-                                    "goal_normalizer_mean": self.goal_normalizer.mean,
-                                    "goal_normalizer_std": self.goal_normalizer.std}, "FetchPickAndPlace.pth",
-                                    overwrite=True, include_optimizer=True, save_format=None,
-                                    signatures=None, options=None, save_traces=True)
 
 
 	# Load actor network from a file
@@ -140,7 +145,7 @@ class Agent:
 		pass
 
 	def set_to_eval_mode(self):
-		pass
+		self.actor.network.evaluate()
 
 	def update_networks(self):
 		Actor.soft_update_network(self.actor, self.actor_target, self.tau)
@@ -153,3 +158,51 @@ class Agent:
 		self.goal_normalizer.update(goals)
 		self.state_normalizer.recompute_stats()
 		self.goal_normalizer.recompute_stats()
+
+	@staticmethod
+	def sync_networks(network):
+		comm = MPI.COMM_WORLD
+		flat_params = _get_flat_params_or_grads(network, mode='params')
+		comm.Bcast(flat_params, root=0)
+		_set_flat_params_or_grads(network, flat_params, mode='params')
+
+	'''
+	@staticmethod
+	def sync_grads(network):
+		flat_grads = _get_flat_params_or_grads(network, mode='grads')
+		comm = MPI.COMM_WORLD
+		global_grads = np.zeros_like(flat_grads)
+		comm.Allreduce(flat_grads, global_grads, op=MPI.SUM)
+		_set_flat_params_or_grads(network, global_grads, mode='grads')
+	'''
+
+def _get_flat_params(network):
+	return np.concatenate([param.flatten() for param in network.get_weights()])
+
+# def _get_flat_grads(network):
+# 	return np.concatenate([param.flatten() for param in network.get_weights()])
+
+def _set_flat_params_or_grads(network, flat_params, mode='params'):
+	attr = 'data' if mode == 'params' else 'grad'
+	pointer = 0
+	for i in range(len(network.layers)):
+		layer = network.get_layer(index = i)
+		lsize = layer.output_shape[1]
+		print(lsize)
+		print(layer.output)
+		print(layer.get_weights())
+		print(type(flat_params))
+		new_params = flat_params[pointer:pointer + lsize]
+		print(new_params)
+		new_params = new_params.reshape(0, lsize)
+		print(new_params)
+			# .reshape(layer.output_shape))
+		layer.set_weights(new_params)
+		pointer += lsize
+
+def _set_flat_grads(network, flat_grads):
+    pointer = 0
+    for param in network.parameters():
+        getattr(param, attr).copy_(
+            torch.tensor(flat_grads[pointer:pointer + param.data.numel()]).view_as(param.data))
+        pointer += param.data.numel()		

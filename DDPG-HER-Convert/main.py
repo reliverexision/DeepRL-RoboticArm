@@ -60,7 +60,7 @@ def eval_agent(env_, agent_):
         ep_r = 0
         for t in range(50):
             # with torch.no_grad():
-            a = agent_.choose_action(tf.stop_gradient(s), tf.stop_gradient(g), train_mode=False)
+            a = agent_.choose_action(s, g, train_mode=False)
             observation_new, r, _, info_ = env_.step(a)
             s = observation_new['observation']
             g = observation_new['desired_goal']
@@ -103,11 +103,11 @@ np.random.seed(MPI.COMM_WORLD.Get_rank())
 # torch.manual_seed(MPI.COMM_WORLD.Get_rank())
 tf.random.set_seed(MPI.COMM_WORLD.Get_rank())
 
-agent = Agent(n_states      = state_shape,
-              n_actions     = n_actions,
-              n_goals       = n_goals,
+agent = Agent(num_states    = state_shape,
+              num_actions   = n_actions,
+              num_goals     = n_goals,
               action_bounds = action_bounds,
-              capacity      = memory_size,
+              mem_size      = memory_size,
               action_size   = n_actions,
               batch_size    = batch_size,
               actor_lr      = actor_lr,
@@ -171,7 +171,7 @@ if Train:
                 episode_dict["next_achieved_goal"] = episode_dict["achieved_goal"][1:]
                 mb.append(dc(episode_dict))
 
-            agent.store(mb)
+            agent.store_transition(mb)
             for n_update in range(num_updates):
                 actor_loss, critic_loss = agent.train()
                 cycle_actor_loss += actor_loss
@@ -196,7 +196,7 @@ if Train:
                   f"Critic_Loss:{critic_loss:.3f}| "
                   f"Success rate:{success_rate:.3f}| "
                   f"{to_gb(ram.used):.1f}/{to_gb(ram.total):.1f} GB RAM")
-            agent.save_weights()
+            # agent.save_weights()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
 
