@@ -10,7 +10,7 @@ def ANN(input_shape, layer_sizes, hidden_activation='relu', output_activation=No
 	return model
 
 class Actor:
-	def __init__(self, input_shape, num_actions, layer_sizes=None, hidden_activation='relu', output_activation=None):
+	def __init__(self, input_shape, num_actions, layer_sizes=None, hidden_activation='linear', output_activation=None):
 		if layer_sizes == None:
 			layer_sizes = (256, 256, 256, num_actions)
 
@@ -45,9 +45,9 @@ class Actor:
 		actor_target.network.set_weights(tau*theta_mu + (1-tau)*theta_muprime)
 
 class Critic:
-	def __init__(self, input_shape, layer_sizes=None, hidden_activation='relu', output_activation=None):
+	def __init__(self, input_shape, layer_sizes=None, hidden_activation='linear', output_activation=None):
 		if layer_sizes == None:
-			layer_sizes = (256, 256, 128, 1)
+			layer_sizes = (256, 256, 256, 1)
 
 		self.input_shape = input_shape
 		self.layer_sizes = layer_sizes
