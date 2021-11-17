@@ -12,7 +12,7 @@ def ANN(input_shape, layer_sizes, hidden_activation='relu', output_activation=No
 class Actor:
 	def __init__(self, input_shape, num_actions, layer_sizes=None, hidden_activation='relu', output_activation=None):
 		if layer_sizes == None:
-			layer_sizes = (1024, 512, 256, num_actions)
+			layer_sizes = (256, 256, 256, num_actions)
 
 		self.input_shape = input_shape
 		self.num_actions = num_actions
@@ -47,7 +47,7 @@ class Actor:
 class Critic:
 	def __init__(self, input_shape, layer_sizes=None, hidden_activation='relu', output_activation=None):
 		if layer_sizes == None:
-			layer_sizes = (512, 128, 1)
+			layer_sizes = (256, 256, 128, 1)
 
 		self.input_shape = input_shape
 		self.layer_sizes = layer_sizes

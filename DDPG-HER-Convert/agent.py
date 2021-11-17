@@ -87,7 +87,7 @@ class Agent:
 			q_eval = self.critic(temp)
 			actor_loss = -tf.reduce_mean(q_eval)
 			mu_grads = tape2.gradient(actor_loss, self.actor.network.trainable_variables)
-		print("\nActor")
+		# print("\nActor")
 		self.sync_grads(mu_grads)
 		self.actor_optimizer.apply_gradients(zip(mu_grads, self.actor.network.trainable_variables))
 
@@ -100,7 +100,7 @@ class Agent:
 			q_eval = self.critic(temp2)
 			critic_loss = tf.reduce_mean((q_eval - target_q)**2)
 			q_grads = tape.gradient(critic_loss, self.critic.network.trainable_variables)
-		print("\nCritic")
+		# print("\nCritic")
 		self.sync_grads(q_grads)
 		self.critic_optimizer.apply_gradients(zip(q_grads, self.critic.network.trainable_variables))
 
@@ -214,7 +214,7 @@ def _set_flat_params(network, flat_params):
 
 def _set_flat_grads(gradients, flat_grads):
     pointer = 0
-    print("\n\n\n\nOld grad: {}".format(gradients))
+    # print("\n\n\n\nOld grad: {}".format(gradients))
     for grad in gradients:
     	# Get grad shape and size
     	gshape = grad.shape
@@ -224,4 +224,4 @@ def _set_flat_grads(gradients, flat_grads):
     	sync_grad = np.asarray(flat_grads[pointer:pointer+gsize], dtype=np.float32).reshape(gshape)
     	grad = tf.convert_to_tensor(sync_grad)
     	pointer += gsize
-    print("\nNew Grad: {}".format(gradients))
+    # print("\nNew Grad: {}".format(gradients))
