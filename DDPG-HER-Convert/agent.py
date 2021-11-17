@@ -25,7 +25,7 @@ class Agent:
 		# Initialise actor and critic networks
 		actor_input_shape  = (num_states[0] + num_goals)
 		critic_input_shape = (num_states[0] + num_goals + num_actions)
-		self.actor         = Actor(actor_input_shape, num_actions)
+		self.actor         = Actor(actor_input_shape, num_actions, output_activation='tanh')
 		self.critic        = Critic(critic_input_shape)
 
 		self.sync_networks(self.actor.network)
@@ -79,49 +79,49 @@ class Agent:
 		next_inputs = np.concatenate([next_states, goals], axis=1)
 		inputsT = tf.convert_to_tensor(inputs)
 
-		'''
         # tf.GradientTape() is to enable automatic differentiation
         # Actor optimization 
 		with tf.GradientTape() as tape2:
-			Aprime = self.action_bounds[1] * self.actor(inputs)
+			Aprime = self.actor(inputs)
 			temp = tf.keras.layers.concatenate([inputsT, Aprime], axis=1)
 			q_eval = self.critic(temp)
 			actor_loss = -tf.reduce_mean(q_eval)
 			mu_grads = tape2.gradient(actor_loss, self.actor.network.trainable_variables)
+		print("\nActor")
+		self.sync_grads(mu_grads)
 		self.actor_optimizer.apply_gradients(zip(mu_grads, self.actor.network.trainable_variables))
-		# self.sync_grads(self.actor.network)
 
 		# Critic optimization
 		with tf.GradientTape() as tape:
-			next_a = self.action_bounds[1] * self.actor_target(next_inputs)
+			next_a = self.actor_target(next_inputs)
 			temp = np.concatenate((next_inputs, next_a), axis=1)
 			target_q = rewards + self.gamma * self.critic_target(temp)
 			temp2 = np.concatenate((inputs, actions), axis=1)
 			q_eval = self.critic(temp2)
 			critic_loss = tf.reduce_mean((q_eval - target_q)**2)
 			q_grads = tape.gradient(critic_loss, self.critic.network.trainable_variables)
+		print("\nCritic")
+		self.sync_grads(q_grads)
 		self.critic_optimizer.apply_gradients(zip(q_grads, self.critic.network.trainable_variables))
-		# self.sync_grads(self.critic.network)
-		'''
 
-		target_q = self.critic_target.predict(next_inputs, self.actor_target.predict(next_inputs))
-		target_returns = rewards + self.gamma * target_q
-		target_returns = tf.clip_by_value(target_returns, -1 / (1 - self.gamma), 0)
+		# target_q = self.critic_target(next_inputs, self.actor_target(next_inputs))
+		# target_returns = rewards + self.gamma * target_q
+		# target_returns = tf.clip_by_value(target_returns, -1 / (1 - self.gamma), 0)
 
-		with tf.GradientTape() as tape2:
-			a = self.actor(inputs)
-			actor_loss = tf.reduce_mean((-self.critic(inputs,a)))
-			actor_loss += tf.reduce_mean(a**2)
-			mu_grads = tape2.gradient(actor_loss, self.actor.network.trainable_variables)
-		self.sync_grads(self.actor.network)
-		self.actor_optimizer.apply_gradients(zip(mu_grads, self.actor.network.trainable_variables))
+		# with tf.GradientTape() as tape2:
+		# 	a = self.actor(inputs)
+		# 	actor_loss = tf.reduce_mean((-self.critic(inputs,a)))
+		# 	actor_loss += tf.reduce_mean(a**2)
+		# 	mu_grads = tape2.gradient(actor_loss, self.actor.network.trainable_variables)
+		# # self.sync_grads(self.actor.network)
+		# self.actor_optimizer.apply_gradients(zip(mu_grads, self.actor.network.trainable_variables))
 
-		with tf.GradientTape() as tape:
-			q_eval = self.critic(inputs, actions)
-			critic_loss = tf.reduce_mean((target_returns - q_eval)**2)
-			q_grads = tape.gradient(critic_loss, self.critic.network.trainable_variables)
-		self.sync_grads(self.critic.network)
-		self.critic_optimizer.apply_gradients(zip(q_grads, self.critic.network.trainable_variables))
+		# with tf.GradientTape() as tape:
+		# 	q_eval = self.critic(inputs, actions)
+		# 	critic_loss = tf.reduce_mean((target_returns - q_eval)**2)
+		# 	q_grads = tape.gradient(critic_loss, self.critic.network.trainable_variables)
+		# # self.sync_grads(self.critic.network)
+		# self.critic_optimizer.apply_gradients(zip(q_grads, self.critic.network.trainable_variables))
 
 		# Returns the individual values of actor_loss and critic_loss
 		return actor_loss.numpy(), critic_loss.numpy()
@@ -163,45 +163,65 @@ class Agent:
 	def sync_networks(network):
 		comm = MPI.COMM_WORLD
 		flat_params = _get_flat_params(network)
+		# weights = network.get_weights()
 		comm.Bcast(flat_params, root=0)
 		_set_flat_params(network, flat_params)
+		# network.set_weights(weights)
 
-	'''
 	@staticmethod
-	def sync_grads(network):
-		flat_grads = _get_flat_params_or_grads(network, mode='grads')
+	def sync_grads(gradients):
+		flat_grads = _get_flat_grads(gradients)
 		comm = MPI.COMM_WORLD
 		global_grads = np.zeros_like(flat_grads)
 		comm.Allreduce(flat_grads, global_grads, op=MPI.SUM)
-		_set_flat_params_or_grads(network, global_grads, mode='grads')
-	'''
+		_set_flat_grads(gradients, global_grads)
+		i = 0
+		# for element in gradient:
+		# 	print(i+1)
+		# 	e_shape = element.shape
+		# 	print(element.shape)
+		# 	e_size = element.numpy().size
+		# 	print(element.numpy().size)
+		# 	i += 1
+		sync_grad = gradients
+		# comm = MPI.COMM_WORLD
 
 def _get_flat_params(network):
 	return np.concatenate([param.flatten() for param in network.get_weights()])
 
-# def _get_flat_grads(network):
-# 	return np.concatenate([param.flatten() for param in network.get_weights()])
+def _get_flat_grads(gradients):
+	return np.concatenate([grad.numpy().flatten() for grad in gradients])
 
 def _set_flat_params(network, flat_params):
 	pointer = 0
 	for i in range(len(network.layers)):
 		layer = network.get_layer(index = i)
-		lsize = layer.output_shape[1]
-		# print(lsize)
-		a = np.asarray(layer.get_weights())
-		print(a.shape)
-		print(a)
-		print(layer.output_shape)
-		print(type(new_params))
-		print(new_params)
+		
+		# Get layer weights size and shape
+		wsize = layer.kernel.numpy().size
+		wshape = layer.kernel.numpy().shape
+		
+		# Get layer output parameters size
+		osize = layer.output_shape[1]
+
+		# Set new layer weights and outputs 
+		new_weights = np.asarray(flat_params[pointer:pointer+wsize], dtype=np.float32).reshape(wshape)
+		pointer += wsize
+		new_out_params = np.asarray(flat_params[pointer:pointer+osize], dtype=np.float32)
+		pointer += osize
+		new_params = [new_weights, new_out_params]
 		layer.set_weights(new_params)
-		pointer += lsize
 
-	for param in 
-
-def _set_flat_grads(network, flat_grads):
+def _set_flat_grads(gradients, flat_grads):
     pointer = 0
-    for param in network.parameters():
-        getattr(param, attr).copy_(
-            torch.tensor(flat_grads[pointer:pointer + param.data.numel()]).view_as(param.data))
-        pointer += param.data.numel()		
+    print("\n\n\n\nOld grad: {}".format(gradients))
+    for grad in gradients:
+    	# Get grad shape and size
+    	gshape = grad.shape
+    	gsize = grad.numpy().size
+
+    	# Set synced grad
+    	sync_grad = np.asarray(flat_grads[pointer:pointer+gsize], dtype=np.float32).reshape(gshape)
+    	grad = tf.convert_to_tensor(sync_grad)
+    	pointer += gsize
+    print("\nNew Grad: {}".format(gradients))

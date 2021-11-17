@@ -10,7 +10,7 @@ def ANN(input_shape, layer_sizes, hidden_activation='relu', output_activation=No
 	return model
 
 class Actor:
-	def __init__(self, input_shape, num_actions, layer_sizes=None, hidden_activation='relu', output_activation='tanh'):
+	def __init__(self, input_shape, num_actions, layer_sizes=None, hidden_activation='relu', output_activation=None):
 		if layer_sizes == None:
 			layer_sizes = (1024, 512, 256, num_actions)
 
@@ -28,6 +28,7 @@ class Actor:
 
 	# Returns numpy array
 	def predict(self, x):
+		# print(self.network.predict(x))
 		return self.network.predict(x).reshape(self.num_actions)
 
 	def init_target_network(self):
@@ -38,13 +39,13 @@ class Actor:
 
 	@staticmethod
 	def soft_update_network(actor, actor_target, tau):
-		theta_mu = np.asarray(actor.network.get_weights())
-		theta_muprime = np.asarray(actor_target.network.get_weights())
+		theta_mu = np.asarray(actor.network.get_weights(), dtype=object)
+		theta_muprime = np.asarray(actor_target.network.get_weights(), dtype=object)
 
 		actor_target.network.set_weights(tau*theta_mu + (1-tau)*theta_muprime)
 
 class Critic:
-	def __init__(self, input_shape, layer_sizes=None, hidden_activation='relu', output_activation='tanh'):
+	def __init__(self, input_shape, layer_sizes=None, hidden_activation='relu', output_activation=None):
 		if layer_sizes == None:
 			layer_sizes = (512, 128, 1)
 
@@ -72,38 +73,73 @@ class Critic:
 
 	@staticmethod
 	def soft_update_network(critic, critic_target, tau):
-		theta_Q = np.asarray(critic.network.get_weights())
-		theta_Qprime = np.asarray(critic_target.network.get_weights())
+		theta_Q = np.asarray(critic.network.get_weights(), dtype=object)
+		theta_Qprime = np.asarray(critic_target.network.get_weights(), dtype=object)
 
 		critic_target.network.set_weights(tau*theta_Q + (1-tau)*theta_Qprime)
 
 
 if __name__ == '__main__':
-	X = 2
-	layer_sizes = [2,2,2]
+	X = 4
+	layer_sizes = [4,2,1]
 
 	a = ANN(X, layer_sizes, output_activation='tanh')
 
-	# print(len(a.layers))
+	# states = [4, 2]
+	# goals = [3]
+	# states = np.expand_dims(states, axis=0)
+	# goals  = np.expand_dims(goals, axis=0)
+	# Aprime = [2]
+	# Aprime = np.expand_dims(Aprime, axis=0)
+	# Aprime = tf.convert_to_tensor(Aprime)
+
+	# inputs = np.concatenate([states, goals], axis=1)
+	# print(inputs)
+	# inputsT = tf.convert_to_tensor(inputs)
+	# print(inputsT)
+
+	# temp = tf.keras.layers.concatenate([inputsT, Aprime], axis=1)
+	# print(temp)
+
+	# print(a(temp))
+
+	# flat_param = np.random.randn(18)
+	# print(flat_param)
+	inputs = [4, 2, 1, 4]
+	inputs = np.expand_dims(inputs, axis=0)
+
+	# with tf.GradientTape() as tape:
+	# 		critic_loss = 0.5
+	# 		critic_loss = tf.convert_to_tensor(critic_loss)
+	# 		q_grads = tape.gradient(critic_loss, a.trainable_variables)
+	# 		print(type(q_grads))
 
 	# for i in range(len(a.layers)):
-	# 	X = a.get_layer(index = i)
-	# 	print(X.get_weights())
-	# 	# param = param
-	# 	print("\n\n")
-	# 	print(len(X.output_shape))
-
-	# print(np.concatenate([param.flatten() for param in a.get_weights()]))
-
-	i = 0
-	for param in a.get_weights():
-		print(i+1)
-		i += 1
-		print(param)
-
+	# 	layer = a.get_layer(index = i)
+	# 	print(i+1)
+	# 	param = layer.get_weights()
+	# 	print(layer.output_shape)
+	# 	print(param)
+	# 	print("\n")
+	# 	layer.set_weights(newparams)
 
 	print(a.summary())
+	print("\n")
 
 	for i in range(len(a.layers)):
 		layer = a.get_layer(index = i)
+		print(i+1)
+		print(layer.output_shape)
+		print(layer.kernel.numpy().size)
+		lsize = layer.output_shape[1]
 		print(layer.get_weights())
+		print("\n")
+		# print(lsize)
+		# a = np.asarray(layer.get_weights())
+		# print(a.shape)
+		# print(a)
+		# print(layer.output_shape)
+		# print(type(new_params))
+		# print(new_params)
+		# layer.set_weights(new_params)
+		# pointer += lsize
