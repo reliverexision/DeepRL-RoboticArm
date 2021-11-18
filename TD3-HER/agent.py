@@ -7,7 +7,7 @@ from torch.optim import Adam
 from mpi4py import MPI
 from normalizer import Normalizer
 from torch.nn import functional as F
-
+from noise import OrnsteinUhlenbeckActionNoise
 
 
 class Agent:
@@ -15,46 +15,52 @@ class Agent:
                  k_future,
                  batch_size,
                  action_size=1,
-                 tau=0.05,
+                 tau=0.01,
+                 noise_type='ou_0.2',
                  actor_lr=1e-3,
                  critic_lr=1e-3,
                  gamma=0.98):
-        self.device = device("cpu")
-        self.n_states = n_states
-        self.n_actions = n_actions
-        self.n_goals = n_goals
-        self.k_future = k_future
+        self.device        = device("cpu")
+        self.n_states      = n_states
+        self.n_actions     = n_actions
+        self.n_goals       = n_goals
+        self.k_future      = k_future
         self.action_bounds = action_bounds
-        self.action_size = action_size
-        self.env = env
+        self.action_size   = action_size
+        self.env           = env
 
-        self.actor = Actor(self.n_states, n_actions=self.n_actions, n_goals=self.n_goals).to(self.device)
+        self.actor  = Actor(self.n_states, n_actions=self.n_actions, n_goals=self.n_goals).to(self.device)
         self.critic = Critic(self.n_states, action_size=self.action_size, n_goals=self.n_goals).to(self.device)
         self.sync_networks(self.actor)
         self.sync_networks(self.critic)
-        self.actor_target = Actor(self.n_states, n_actions=self.n_actions, n_goals=self.n_goals).to(self.device)
+        self.actor_target  = Actor(self.n_states, n_actions=self.n_actions, n_goals=self.n_goals).to(self.device)
         self.critic_target = Critic(self.n_states, action_size=self.action_size, n_goals=self.n_goals).to(self.device)
         self.init_target_networks()
-        self.tau = tau
+        self.tau   = tau
         self.gamma = gamma
 
         self.capacity = capacity
-        self.memory = Memory(self.capacity, self.k_future, self.env)
+        self.memory   = Memory(self.capacity, self.k_future, self.env)
 
-        self.batch_size = batch_size
-        self.actor_lr = actor_lr
-        self.critic_lr = critic_lr
-        self.actor_optim = Adam(self.actor.parameters(), self.actor_lr)
+        self.batch_size   = batch_size
+        self.actor_lr     = actor_lr
+        self.critic_lr    = critic_lr
+        self.actor_optim  = Adam(self.actor.parameters(), self.actor_lr)
         self.critic_optim = Adam(self.critic.parameters(), self.critic_lr)
 
-        self.state_normalizer = Normalizer(self.n_states[0], default_clip_range=5)
-        self.goal_normalizer = Normalizer(self.n_goals, default_clip_range=5)
+        nb_actions = self.env.action_space.shape[-1]
+        for current_noise_type in noise_type.split(','):
+            _, stddev = current_noise_type.split('_')
+            self.action_noise = OrnsteinUhlenbeckActionNoise(mu=np.zeros(nb_actions), sigma=float(stddev) * np.ones(nb_actions))
 
-    def choose_action(self, state, goal, train_mode=True):
+        self.state_normalizer = Normalizer(self.n_states[0], default_clip_range=5)
+        self.goal_normalizer  = Normalizer(self.n_goals, default_clip_range=5)
+
+    def choose_action(self, state, goal, train_mode=True, noise = 0.1):
         state = self.state_normalizer.normalize(state)
-        goal = self.goal_normalizer.normalize(goal)
+        goal  = self.goal_normalizer.normalize(goal)
         state = np.expand_dims(state, axis=0)
-        goal = np.expand_dims(goal, axis=0)
+        goal  = np.expand_dims(goal, axis=0)
 
         with torch.no_grad():
             x = np.concatenate([state, goal], axis=1)
@@ -62,7 +68,9 @@ class Agent:
             action = self.actor(x)[0].cpu().data.numpy()
 
         if train_mode:
-            action += 0.2 * np.random.randn(self.n_actions)
+            noise = self.action_noise()
+            assert noise.shape == action.shape
+            action += noise * np.random.randn(self.n_actions)
             action = np.clip(action, self.action_bounds[0], self.action_bounds[1])
 
             random_actions = np.random.uniform(low=self.action_bounds[0], high=self.action_bounds[1],
@@ -85,7 +93,7 @@ class Agent:
         target_model.load_state_dict(local_model.state_dict())
 
     @staticmethod
-    def soft_update_networks(local_model, target_model, tau=0.05):
+    def soft_update_networks(local_model, target_model, tau=0.01):
         for t_params, e_params in zip(target_model.parameters(), local_model.parameters()):
             t_params.data.copy_(tau * e_params.data + (1 - tau) * t_params.data)
 

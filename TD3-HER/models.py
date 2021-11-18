@@ -11,9 +11,9 @@ def init_weights_biases(size):
 
 class Actor(nn.Module):
     def __init__(self, n_states, n_actions, n_goals, n_hidden1=256, n_hidden2=256, n_hidden3=256, initial_w=3e-3):
-        self.n_states = n_states[0]
+        self.n_states  = n_states[0]
         self.n_actions = n_actions
-        self.n_goals = n_goals
+        self.n_goals   = n_goals
         self.n_hidden1 = n_hidden1
         self.n_hidden2 = n_hidden2
         self.n_hidden3 = n_hidden3
@@ -39,9 +39,9 @@ class Critic(nn.Module):
         super(Critic, self).__init__()
 
         self.n_states = n_states[0]
-        self.n_goals = n_goals
+        self.n_goals  = n_goals
 
-        self.initial_w = initial_w
+        self.initial_w   = initial_w
         self.action_size = action_size
 
         self.n_hidden1 = n_hidden1
@@ -73,6 +73,7 @@ class Critic(nn.Module):
         x2 = F.relu(self.fc4(torch.cat([x, a], dim=-1)))
         x2 = F.relu(self.fc5(x2))
         x2 = F.relu(self.fc6(x2))
+
         output1 = self.output1(x1)
         output2 = self.output2(x2)
 
@@ -83,5 +84,7 @@ class Critic(nn.Module):
 
         x1 = F.relu(self.fc1(xu))
         x1 = F.relu(self.fc2(x1))
-        x1 = self.fc3(x1)
-        return x1
+        x1 = F.relu(self.fc3(x1))
+        output = self.output1(x1)
+
+        return output
