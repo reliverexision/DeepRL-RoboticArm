@@ -2,7 +2,6 @@
 # from torch import device
 import tensorflow as tf
 import numpy as np
-import cv2
 from gym import wrappers
 from mujoco_py import GlfwContext
 

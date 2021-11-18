@@ -1,0 +1,1 @@
+mpirun -np $(nproc) python3 -u main.py
