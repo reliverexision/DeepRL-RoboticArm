@@ -63,7 +63,7 @@ class Critic:
 	# Returns numpy array
 	def predict(self, x, a):
 		XA = np.concatenate((x, a), axis=1)
-		return self.network.predict(x).reshape(1)
+		return self.network.predict(XA).reshape(1)
 
 	def init_target_network(self):
 		t_network = Critic(self.input_shape, self.layer_sizes, self.hidden_activation, self.output_activation)

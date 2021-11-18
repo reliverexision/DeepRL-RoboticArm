@@ -55,14 +55,11 @@ class Agent:
 		action = self.actor.predict(x)
 
 		if train_mode:
-			# Adds noise to the action
 			action += 0.2 * np.random.randn(self.num_actions)
 			action = np.clip(action, self.action_bounds[0], self.action_bounds[1])
 
 			random_actions = np.random.uniform(low=self.action_bounds[0], high=self.action_bounds[1],
 											size=self.num_actions)
-
-			# Chance of doing a random action with p = 0.3
 			action += np.random.binomial(1, 0.3, 1)[0] * (random_actions - action)
 
 		return action
@@ -90,6 +87,7 @@ class Agent:
 			q_eval = self.critic(temp)
 			actor_loss = -tf.reduce_mean(q_eval)
 			mu_grads = tape2.gradient(actor_loss, self.actor.network.trainable_variables)
+		# print("\nActor")
 		self.sync_grads(mu_grads)
 		self.actor_optimizer.apply_gradients(zip(mu_grads, self.actor.network.trainable_variables))
 
@@ -102,8 +100,28 @@ class Agent:
 			q_eval = self.critic(temp2)
 			critic_loss = tf.reduce_mean((q_eval - target_q)**2)
 			q_grads = tape.gradient(critic_loss, self.critic.network.trainable_variables)
+		# print("\nCritic")
 		self.sync_grads(q_grads)
 		self.critic_optimizer.apply_gradients(zip(q_grads, self.critic.network.trainable_variables))
+
+		# target_q = self.critic_target(next_inputs, self.actor_target(next_inputs))
+		# target_returns = rewards + self.gamma * target_q
+		# target_returns = tf.clip_by_value(target_returns, -1 / (1 - self.gamma), 0)
+
+		# with tf.GradientTape() as tape2:
+		# 	a = self.actor(inputs)
+		# 	actor_loss = tf.reduce_mean((-self.critic(inputs,a)))
+		# 	actor_loss += tf.reduce_mean(a**2)
+		# 	mu_grads = tape2.gradient(actor_loss, self.actor.network.trainable_variables)
+		# # self.sync_grads(self.actor.network)
+		# self.actor_optimizer.apply_gradients(zip(mu_grads, self.actor.network.trainable_variables))
+
+		# with tf.GradientTape() as tape:
+		# 	q_eval = self.critic(inputs, actions)
+		# 	critic_loss = tf.reduce_mean((target_returns - q_eval)**2)
+		# 	q_grads = tape.gradient(critic_loss, self.critic.network.trainable_variables)
+		# # self.sync_grads(self.critic.network)
+		# self.critic_optimizer.apply_gradients(zip(q_grads, self.critic.network.trainable_variables))
 
 		# Returns the individual values of actor_loss and critic_loss
 		return actor_loss.numpy(), critic_loss.numpy()
@@ -157,6 +175,16 @@ class Agent:
 		global_grads = np.zeros_like(flat_grads)
 		comm.Allreduce(flat_grads, global_grads, op=MPI.SUM)
 		_set_flat_grads(gradients, global_grads)
+		i = 0
+		# for element in gradient:
+		# 	print(i+1)
+		# 	e_shape = element.shape
+		# 	print(element.shape)
+		# 	e_size = element.numpy().size
+		# 	print(element.numpy().size)
+		# 	i += 1
+		sync_grad = gradients
+		# comm = MPI.COMM_WORLD
 
 def _get_flat_params(network):
 	return np.concatenate([param.flatten() for param in network.get_weights()])
@@ -186,6 +214,7 @@ def _set_flat_params(network, flat_params):
 
 def _set_flat_grads(gradients, flat_grads):
     pointer = 0
+    # print("\n\n\n\nOld grad: {}".format(gradients))
     for grad in gradients:
     	# Get grad shape and size
     	gshape = grad.shape
@@ -195,3 +224,4 @@ def _set_flat_grads(gradients, flat_grads):
     	sync_grad = np.asarray(flat_grads[pointer:pointer+gsize], dtype=np.float32).reshape(gshape)
     	grad = tf.convert_to_tensor(sync_grad)
     	pointer += gsize
+    # print("\nNew Grad: {}".format(gradients))
