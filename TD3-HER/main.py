@@ -17,16 +17,16 @@ ENV_NAME      = "FetchPickAndPlace-v1"
 INTRO         = False
 Train         = True
 Play_FLAG     = False 
-MAX_EPOCHS    = 300
+MAX_EPOCHS    = 150
 MAX_CYCLES    = 50
 num_updates   = 40
-MAX_EPISODES  = 2
+MAX_EPISODES  = 1
 memory_size   = 7e+5 // 50
-batch_size    = 256
+batch_size    = 128
 actor_lr      = 1e-3
 critic_lr     = 1e-3
 gamma         = 0.98
-tau           = 0.05
+tau           = 0.01
 k_future      = 4
 
 test_env      = gym.make(ENV_NAME)
@@ -38,7 +38,7 @@ to_gb         = lambda in_bytes: in_bytes / 1024 / 1024 / 1024
 
 os.environ['OMP_NUM_THREADS'] = '1'
 os.environ['MKL_NUM_THREADS'] = '1'
-os.environ['IN_MPI'] = '1'
+os.environ['IN_MPI']          = '1'
 
 
 def eval_agent(env_, agent_):
@@ -170,7 +170,7 @@ if Train:
             actor_loss, critic_loss, cycle_actor_loss, cycle_critic_loss = agent.train(num_updates=num_updates)
 
             epoch_actor_loss += cycle_actor_loss / num_updates
-            epoch_critic_loss += cycle_critic_loss /num_updates
+            epoch_critic_loss += cycle_critic_loss / num_updates
             agent.update_networks()
 
         ram = psutil.virtual_memory()
