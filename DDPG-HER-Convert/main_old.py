@@ -1,40 +1,42 @@
-import os
-import time
-import random
-import psutil
 import gym
-import mujoco_py
-from copy import deepcopy as dc
+from agent import Agent
+import matplotlib.pyplot as plt
+# from torch.utils.tensorboard import SummaryWriter
 import numpy as np
+from play import Play
+import mujoco_py
+import random
+from mpi4py import MPI
+import psutil
+import time
+from copy import deepcopy as dc
+import os
+# import torch
 import tensorflow as tf
 from tensorflow.summary import SummaryWriter
-import matplotlib.pyplot as plt
-from mpi4py import MPI
-from agent import Agent
-from play import Play
 
-ENV_NAME        = "FetchPickAndPlace-v1"
-INTRO           = False
-Train           = True
-Play_FLAG       = False 
-MAX_EPOCHS      = 300
-MAX_CYCLES      = 50
-num_updates     = 40
-MAX_EPISODES    = 2
-memory_size     = 7e+5 // 50
-batch_size      = 256
-actor_lr        = 1e-3
-critic_lr       = 1e-3
-gamma           = 0.98
-tau             = 0.05
-k_future        = 4
+ENV_NAME      = "FetchPickAndPlace-v1"
+INTRO         = False
+Train         = True
+Play_FLAG     = False
+MAX_EPOCHS    = 50
+MAX_CYCLES    = 50
+num_updates   = 40
+MAX_EPISODES  = 2
+memory_size   = 7e+5 // 50
+batch_size    = 256
+actor_lr      = 1e-3
+critic_lr     = 1e-3
+gamma         = 0.98
+tau           = 0.05
+k_future      = 4
 
-test_env        = gym.make(ENV_NAME)
-state_shape     = test_env.observation_space.spaces["observation"].shape
-n_actions       = test_env.action_space.shape[0]
-n_goals         = test_env.observation_space.spaces["desired_goal"].shape[0]
-action_bounds   = [test_env.action_space.low[0], test_env.action_space.high[0]]
-to_gb           = lambda in_bytes: in_bytes / 1024 / 1024 / 1024
+test_env      = gym.make(ENV_NAME)
+state_shape   = test_env.observation_space.spaces["observation"].shape
+n_actions     = test_env.action_space.shape[0]
+n_goals       = test_env.observation_space.spaces["desired_goal"].shape[0]
+action_bounds = [test_env.action_space.low[0], test_env.action_space.high[0]]
+to_gb         = lambda in_bytes: in_bytes / 1024 / 1024 / 1024
 
 os.environ['OMP_NUM_THREADS'] = '1'
 os.environ['MKL_NUM_THREADS'] = '1'
@@ -47,14 +49,14 @@ def eval_agent(env_, agent_):
     for ep in range(10):
         per_success_rate = []
         env_dictionary = env_.reset()
-        s = env_dictionary["observation"]
+        s  = env_dictionary["observation"]
         ag = env_dictionary["achieved_goal"]
-        g = env_dictionary["desired_goal"]
+        g  = env_dictionary["desired_goal"]
         while np.linalg.norm(ag - g) <= 0.05:
             env_dictionary = env_.reset()
-            s = env_dictionary["observation"]
+            s  = env_dictionary["observation"]
             ag = env_dictionary["achieved_goal"]
-            g = env_dictionary["desired_goal"]
+            g  = env_dictionary["desired_goal"]
         ep_r = 0
         for t in range(50):
             # with torch.no_grad():
@@ -69,8 +71,9 @@ def eval_agent(env_, agent_):
             running_r.append(ep_r)
         else:
             running_r.append(running_r[-1] * 0.99 + 0.01 * ep_r)
-    total_success_rate = np.array(total_success_rate)
-    local_success_rate = np.mean(total_success_rate[:, -1])
+            
+    total_success_rate  = np.array(total_success_rate)
+    local_success_rate  = np.mean(total_success_rate[:, -1])
     global_success_rate = MPI.COMM_WORLD.allreduce(local_success_rate, op=MPI.SUM)
     return global_success_rate / MPI.COMM_WORLD.Get_size(), running_r, ep_r
 
@@ -97,6 +100,7 @@ env = gym.make(ENV_NAME)
 env.seed(MPI.COMM_WORLD.Get_rank())
 random.seed(MPI.COMM_WORLD.Get_rank())
 np.random.seed(MPI.COMM_WORLD.Get_rank())
+# torch.manual_seed(MPI.COMM_WORLD.Get_rank())
 tf.random.set_seed(MPI.COMM_WORLD.Get_rank())
 
 agent = Agent(num_states    = state_shape,
@@ -113,16 +117,17 @@ agent = Agent(num_states    = state_shape,
               k_future      = k_future,
               env           = dc(env))
 if Train:
+
     t_success_rate = []
-    total_ac_loss = []
-    total_cr_loss = []
+    total_ac_loss  = []
+    total_cr_loss  = []
     for epoch in range(MAX_EPOCHS):
-        start_time = time.time()
-        epoch_actor_loss = 0
+        start_time        = time.time()
+        epoch_actor_loss  = 0
         epoch_critic_loss = 0
         for cycle in range(0, MAX_CYCLES):
             mb = []
-            cycle_actor_loss = 0
+            cycle_actor_loss  = 0
             cycle_critic_loss = 0
             for episode in range(MAX_EPISODES):
                 episode_dict = {
@@ -145,7 +150,7 @@ if Train:
                 for t in range(50):
                     action = agent.choose_action(state, desired_goal)
                     next_env_dict, reward, done, info = env.step(action)
-                    #env.render()
+
                     next_state = next_env_dict["observation"]
                     next_achieved_goal = next_env_dict["achieved_goal"]
                     next_desired_goal = next_env_dict["desired_goal"]
@@ -191,13 +196,19 @@ if Train:
                   f"Critic_Loss:{critic_loss:.3f}| "
                   f"Success rate:{success_rate:.3f}| "
                   f"{to_gb(ram.used):.1f}/{to_gb(ram.total):.1f} GB RAM")
-            agent.save_weights()
+            # agent.save_weights()
 
     if MPI.COMM_WORLD.Get_rank() == 0:
 
-        with SummaryWriter("logs") as writer:
+        # with SummaryWriter("logs") as writer:
+        #     for i, success_rate in enumerate(t_success_rate):
+        #         writer.add_scalar("Success_rate", success_rate, i)
+
+        writer = tf.summary.create_file_writer("/tmp/mylogs")
+
+        with writer.as_default(step=10):
             for i, success_rate in enumerate(t_success_rate):
-                writer.add_scalar("Success_rate", success_rate, i)
+                tf.summary.scalar("Success_rate", success_rate, i)
 
         plt.style.use('ggplot')
         plt.figure()
@@ -207,6 +218,5 @@ if Train:
         plt.show()
 
 elif Play_FLAG:
-    env.render()
-    player = Play(env, agent, max_episode=20)
+    player = Play(env, agent, max_episode=100)
     player.evaluate()
