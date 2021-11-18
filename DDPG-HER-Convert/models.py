@@ -47,7 +47,7 @@ class Actor:
 class Critic:
 	def __init__(self, input_shape, layer_sizes=None, hidden_activation='relu', output_activation=None):
 		if layer_sizes == None:
-			layer_sizes = (256, 256, 128, 1)
+			layer_sizes = (256, 256, 256, 1)
 
 		self.input_shape = input_shape
 		self.layer_sizes = layer_sizes
@@ -63,7 +63,7 @@ class Critic:
 	# Returns numpy array
 	def predict(self, x, a):
 		XA = np.concatenate((x, a), axis=1)
-		return self.network.predict(x).reshape(1)
+		return self.network.predict(XA).reshape(1)
 
 	def init_target_network(self):
 		t_network = Critic(self.input_shape, self.layer_sizes, self.hidden_activation, self.output_activation)
