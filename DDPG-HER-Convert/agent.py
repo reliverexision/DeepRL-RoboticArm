@@ -1,9 +1,11 @@
+import pickle
 import tensorflow as tf
 import numpy as np
 from models import Actor, Critic
 from memory import Memory
 from mpi4py import MPI
 from normalizer import Normalizer
+
 
 class Agent:
 	def __init__(self, num_states, num_actions, num_goals, action_bounds, mem_size, env, k_future, batch_size, 
@@ -59,11 +61,10 @@ class Agent:
 			action += 0.2 * np.random.randn(self.num_actions)
 			action = np.clip(action, self.action_bounds[0], self.action_bounds[1])
 
-			random_actions = np.random.uniform(low=self.action_bounds[0], high=self.action_bounds[1],
+			# Chance of doing a random action with p = 0.2
+			if np.random.uniform() < 0.2:
+				action = np.random.uniform(low=self.action_bounds[0], high=self.action_bounds[1],
 											size=self.num_actions)
-
-			# Chance of doing a random action with p = 0.3
-			action += np.random.binomial(1, 0.3, 1)[0] * (random_actions - action)
 
 		return action
 
@@ -90,7 +91,7 @@ class Agent:
 			q_eval = self.critic(temp)
 			actor_loss = -tf.reduce_mean(q_eval)
 			mu_grads = tape2.gradient(actor_loss, self.actor.network.trainable_variables)
-		self.sync_grads(mu_grads)
+		mu_grads = self.sync_grads(mu_grads)
 		self.actor_optimizer.apply_gradients(zip(mu_grads, self.actor.network.trainable_variables))
 
 		# Critic optimization
@@ -102,29 +103,41 @@ class Agent:
 			q_eval = self.critic(temp2)
 			critic_loss = tf.reduce_mean((q_eval - target_q)**2)
 			q_grads = tape.gradient(critic_loss, self.critic.network.trainable_variables)
-		self.sync_grads(q_grads)
+		q_grads = self.sync_grads(q_grads)
 		self.critic_optimizer.apply_gradients(zip(q_grads, self.critic.network.trainable_variables))
 
 		# Returns the individual values of actor_loss and critic_loss
 		return actor_loss.numpy(), critic_loss.numpy()
 
-	# Save actor network to a file
+	# Save actor network and normalizer parameters
 	def save_weights(self):
-		pass
-		# save_path = "FetchPickAndPlaceActor"
-		# model = self.actor.network.get_weights()
-		# checkpoint = tf.train.Checkpoint(models=model, 
-		# 								 state_normalizer_mean=self.state_normalizer.mean,
-		# 								 state_normalizer_std=self.state_normalizer.std,
-		# 								 goal_normalizer_mean=self.goal_normalizer.mean,
-		# 								 goal_normalizer_std=self.goal_normalizer.std)
+		self.actor.network.save('FPP-Pretrained/Actor')
 
+		with open('FPP-Pretrained/Params', 'wb') as outp:
+			state_normalizer_mean=self.state_normalizer.mean
+			state_normalizer_std=self.state_normalizer.std
+			goal_normalizer_mean=self.goal_normalizer.mean
+			goal_normalizer_std=self.goal_normalizer.std
 
+			saveDict = {'state_normalizer_mean':state_normalizer_mean,
+						'state_normalizer_std':state_normalizer_std,
+						'goal_normalizer_mean':goal_normalizer_mean,
+						'goal_normalizer_std':goal_normalizer_std
+						}
 
-	# Load actor network from a file
+			pickle.dump(saveDict, outp, pickle.HIGHEST_PROTOCOL)
+
+	# Load actor network and normalizer parameters
 	def load_weights(self):
-		# self.actor.network = tf.keras.models.load_model("FetchPickAndPlaceActor")
-		pass
+		self.actor.network = tf.keras.models.load_model("FPP-Pretrained/Actor")
+
+		with open('FPP-Pretrained/Params', 'rb') as inp:
+			loadDict = pickle.load(inp)
+
+			self.state_normalizer.mean = loadDict['state_normalizer_mean']
+			self.state_normalizer.std = loadDict['state_normalizer_std']
+			self.goal_normalizer.mean = loadDict['goal_normalizer_mean']
+			self.goal_normalizer.std = loadDict['goal_normalizer_std']
 
 	def set_to_eval_mode(self):
 		self.actor.network.evaluate()
@@ -144,27 +157,25 @@ class Agent:
 	@staticmethod
 	def sync_networks(network):
 		comm = MPI.COMM_WORLD
-		flat_params = _get_flat_params(network)
-		# weights = network.get_weights()
+		flat_params = get_flat_params(network)
 		comm.Bcast(flat_params, root=0)
-		_set_flat_params(network, flat_params)
-		# network.set_weights(weights)
+		get_synced_params(network, flat_params)
 
 	@staticmethod
 	def sync_grads(gradients):
-		flat_grads = _get_flat_grads(gradients)
+		flat_grads = get_flat_grads(gradients)
 		comm = MPI.COMM_WORLD
 		global_grads = np.zeros_like(flat_grads)
 		comm.Allreduce(flat_grads, global_grads, op=MPI.SUM)
-		_set_flat_grads(gradients, global_grads)
+		return get_synced_grads(gradients, global_grads)
 
-def _get_flat_params(network):
+def get_flat_params(network):
 	return np.concatenate([param.flatten() for param in network.get_weights()])
 
-def _get_flat_grads(gradients):
+def get_flat_grads(gradients):
 	return np.concatenate([grad.numpy().flatten() for grad in gradients])
 
-def _set_flat_params(network, flat_params):
+def get_synced_params(network, flat_params):
 	pointer = 0
 	for i in range(len(network.layers)):
 		layer = network.get_layer(index = i)
@@ -184,8 +195,9 @@ def _set_flat_params(network, flat_params):
 		new_params = [new_weights, new_out_params]
 		layer.set_weights(new_params)
 
-def _set_flat_grads(gradients, flat_grads):
+def get_synced_grads(gradients, flat_grads):
     pointer = 0
+    new_grad = []
     for grad in gradients:
     	# Get grad shape and size
     	gshape = grad.shape
@@ -193,5 +205,7 @@ def _set_flat_grads(gradients, flat_grads):
 
     	# Set synced grad
     	sync_grad = np.asarray(flat_grads[pointer:pointer+gsize], dtype=np.float32).reshape(gshape)
-    	grad = tf.convert_to_tensor(sync_grad)
+    	new_grad.append(tf.convert_to_tensor(sync_grad))
     	pointer += gsize
+
+    return new_grad
