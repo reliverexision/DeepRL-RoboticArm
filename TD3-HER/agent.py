@@ -15,7 +15,7 @@ class Agent:
                  k_future,
                  batch_size,
                  action_size=1,
-                 tau=0.01,
+                 tau=0.05,
                  noise_type='ou_0.2',
                  actor_lr=1e-3,
                  critic_lr=1e-3,
@@ -75,7 +75,7 @@ class Agent:
 
             random_actions = np.random.uniform(low=self.action_bounds[0], high=self.action_bounds[1],
                                                size=self.n_actions)
-            action += np.random.binomial(1, 0.3, 1)[0] * (random_actions - action)
+            action += np.random.binomial(1, 0.2, 1)[0] * (random_actions - action)
 
         return action
 
@@ -93,7 +93,7 @@ class Agent:
         target_model.load_state_dict(local_model.state_dict())
 
     @staticmethod
-    def soft_update_networks(local_model, target_model, tau=0.01):
+    def soft_update_networks(local_model, target_model, tau=0.05):
         for t_params, e_params in zip(target_model.parameters(), local_model.parameters()):
             t_params.data.copy_(tau * e_params.data + (1 - tau) * t_params.data)
 
@@ -177,7 +177,6 @@ class Agent:
 
     def set_to_eval_mode(self):
         self.actor.eval()
-        # self.critic.eval()
 
     def update_networks(self):
         self.soft_update_networks(self.actor, self.actor_target, self.tau)

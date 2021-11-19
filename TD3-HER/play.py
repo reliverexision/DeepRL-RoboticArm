@@ -51,11 +51,6 @@ class Play:
                     state = next_state.copy()
                     desired_goal = next_desired_goal.copy()
                     I = self.env.render(mode="human")  # mode = "rgb_array
-                    # self.env.viewer.cam.type = const.CAMERA_FREE
-                    # self.env.viewer.cam.fixedcamid = 0
-                    # I = cv2.cvtColor(I, cv2.COLOR_RGB2BGR)
-                    # cv2.imshow("I", I)
-                    # cv2.waitKey(2)
                     
                 
                 done=False
@@ -68,6 +63,5 @@ class Play:
             action = [-100,100,100,1]
             next_env_dict, r, done, _ = self.env.step_play(action,i-1)
             self.env.render(mode="human") 
-            #self.env.pause()
 
         self.env.close()

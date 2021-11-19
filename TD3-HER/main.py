@@ -14,7 +14,6 @@ import os
 import torch
 
 ENV_NAME      = "FetchPickAndPlace-v1"
-INTRO         = False
 Train         = True
 Play_FLAG     = False 
 MAX_EPOCHS    = 150
@@ -22,11 +21,11 @@ MAX_CYCLES    = 50
 num_updates   = 40
 MAX_EPISODES  = 1
 memory_size   = 7e+5 // 50
-batch_size    = 128
+batch_size    = 256
 actor_lr      = 1e-3
 critic_lr     = 1e-3
 gamma         = 0.98
-tau           = 0.01
+tau           = 0.05
 k_future      = 4
 
 test_env      = gym.make(ENV_NAME)
@@ -73,25 +72,6 @@ def eval_agent(env_, agent_):
     local_success_rate = np.mean(total_success_rate[:, -1])
     global_success_rate = MPI.COMM_WORLD.allreduce(local_success_rate, op=MPI.SUM)
     return global_success_rate / MPI.COMM_WORLD.Get_size(), running_r, ep_r
-
-
-if INTRO:
-    print(f"state_shape:{state_shape[0]}\n"
-          f"number of actions:{n_actions}\n"
-          f"action boundaries:{action_bounds}\n"
-          f"max timesteps:{test_env._max_episode_steps}")
-    for _ in range(3):
-        done = False
-        test_env.reset()
-        while not done:
-            action = test_env.action_space.sample()
-            test_state, test_reward, test_done, test_info = test_env.step(action)
-            # substitute_goal = test_state["achieved_goal"].copy()
-            # substitute_reward = test_env.compute_reward(
-            #     test_state["achieved_goal"], substitute_goal, test_info)
-            # print("r is {}, substitute_reward is {}".format(r, substitute_reward))
-            test_env.render()
-    exit(0)
 
 env = gym.make(ENV_NAME)
 env.seed(MPI.COMM_WORLD.Get_rank())
@@ -144,7 +124,7 @@ if Train:
                 for t in range(50):
                     action = agent.choose_action(state, desired_goal)
                     next_env_dict, reward, done, info = env.step(action)
-                    #env.render()
+                    
                     next_state = next_env_dict["observation"]
                     next_achieved_goal = next_env_dict["achieved_goal"]
                     next_desired_goal = next_env_dict["desired_goal"]
