@@ -109,6 +109,46 @@ class Agent:
 		# Returns the individual values of actor_loss and critic_loss
 		return actor_loss.numpy(), critic_loss.numpy()
 
+	# Save all networks and normalizer parameters for checkpoint
+	def save_checkpoint(self, epoch):
+		self.actor.network.save('FPP-Checkpoint/Actor')
+		self.actor_target.network.save('FPP-Checkpoint/ActorT')
+		self.critic.network.save('FPP-Checkpoint/Critic')
+		self.critic_target.network.save('FPP-Checkpoint/CriticT')
+
+		with open('FPP-Checkpoint/Params', 'wb') as outp:
+			state_normalizer_mean=self.state_normalizer.mean
+			state_normalizer_std=self.state_normalizer.std
+			goal_normalizer_mean=self.goal_normalizer.mean
+			goal_normalizer_std=self.goal_normalizer.std
+			epoch = epoch
+
+			saveDict = {'state_normalizer_mean':state_normalizer_mean,
+						'state_normalizer_std':state_normalizer_std,
+						'goal_normalizer_mean':goal_normalizer_mean,
+						'goal_normalizer_std':goal_normalizer_std,
+						'epoch':epoch
+						}
+
+			pickle.dump(saveDict, outp, pickle.HIGHEST_PROTOCOL)
+
+	def load_checkpoint(self):
+		self.actor.network = tf.keras.models.load_model("FPP-Checkpoint/Actor")
+		self.actor_target.network = tf.keras.models.load_model("FPP-Checkpoint/ActorT")
+		self.critic.network = tf.keras.models.load_model("FPP-Checkpoint/Critic")
+		self.critic_target.network = tf.keras.models.load_model("FPP-Checkpoint/CriticT")
+
+		with open('FPP-Pretrained/Params', 'rb') as inp:
+			loadDict = pickle.load(inp)
+
+			self.state_normalizer.mean = loadDict['state_normalizer_mean']
+			self.state_normalizer.std = loadDict['state_normalizer_std']
+			self.goal_normalizer.mean = loadDict['goal_normalizer_mean']
+			self.goal_normalizer.std = loadDict['goal_normalizer_std']
+			epoch = loadDict['epoch']
+
+		return epoch
+
 	# Save actor network and normalizer parameters
 	def save_weights(self):
 		self.actor.network.save('FPP-Pretrained/Actor')
@@ -140,7 +180,8 @@ class Agent:
 			self.goal_normalizer.std = loadDict['goal_normalizer_std']
 
 	def set_to_eval_mode(self):
-		self.actor.network.evaluate()
+		self.actor.network.compile(optimizer='Adam')
+		# self.actor.network.evaluate()
 
 	def update_networks(self):
 		Actor.soft_update_network(self.actor, self.actor_target, self.tau)

@@ -15,9 +15,9 @@ from play import Play
 
 ENV_NAME        = "FetchPickAndPlace-v1"
 INTRO           = False
-Train           = True
-Play_FLAG       = False 
-MAX_EPOCHS      = 300
+Train           = False
+Play_FLAG       = True
+MAX_EPOCHS      = 40
 MAX_CYCLES      = 50
 num_updates     = 40
 MAX_EPISODES    = 2
@@ -191,7 +191,11 @@ if Train:
                   f"Critic_Loss:{critic_loss:.3f}| "
                   f"Success rate:{success_rate:.3f}| "
                   f"{to_gb(ram.used):.1f}/{to_gb(ram.total):.1f} GB RAM")
-            agent.save_weights()
+            if epoch%5 == 0:
+                agent.save_checkpoint(epoch)
+            elif epoch == MAX_EPOCHS-1:
+                agent.save_weights()
+
 
     if MPI.COMM_WORLD.Get_rank() == 0:
 

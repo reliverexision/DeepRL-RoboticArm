@@ -3,7 +3,7 @@ from agent import Agent
 import matplotlib.pyplot as plt
 # from torch.utils.tensorboard import SummaryWriter
 import numpy as np
-from play import Play
+from play_old import Play
 import mujoco_py
 import random
 from mpi4py import MPI
@@ -17,8 +17,8 @@ from tensorflow.summary import SummaryWriter
 
 ENV_NAME      = "FetchPickAndPlace-v1"
 INTRO         = False
-Train         = True
-Play_FLAG     = False
+Train         = False
+Play_FLAG     = True
 MAX_EPOCHS    = 50
 MAX_CYCLES    = 50
 num_updates   = 40

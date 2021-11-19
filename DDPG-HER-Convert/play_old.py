@@ -13,7 +13,7 @@ from mujoco_py.generated import const
 class Play:
     def __init__(self, env, agent, max_episode=4):
         self.env = env
-        self.env = wrappers.Monitor(env, "./videos", video_callable=lambda episode_id: True, force=True)
+        # self.env = wrappers.Monitor(env, "./videos", video_callable=lambda episode_id: True, force=True)
         self.max_episode = max_episode
         self.agent = agent
         self.agent.load_weights()
