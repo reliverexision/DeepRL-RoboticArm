@@ -77,3 +77,45 @@ class Critic:
 		theta_Qprime = np.asarray(critic_target.network.get_weights(), dtype=object)
 
 		critic_target.network.set_weights(tau*theta_Q + (1-tau)*theta_Qprime)
+
+class Critic2:
+	def __init__(self, input_shape, layer_sizes=None, hidden_activation='relu', output_activation=None):
+		if layer_sizes == None:
+			layer_sizes = (256, 256, 256, 1)
+
+		self.input_shape = input_shape
+		self.layer_sizes = layer_sizes
+		self.hidden_activation = hidden_activation
+		self.output_activation = output_activation
+
+		self.network1 = ANN(input_shape, list(layer_sizes), hidden_activation, output_activation)
+		self.network2 = ANN(input_shape, list(layer_sizes), hidden_activation, output_activation)
+
+	# Returns tensor object
+	def __call__(self, x):
+		return self.network1(x), self.network2(x)
+
+	# Returns numpy array
+	def predict(self, x, a):
+		XA = np.concatenate((x, a), axis=1)
+		return self.network1.predict(XA).reshape(1), self.network2.predict(XA).reshape(1)
+
+	def init_target_network(self):
+		t_network = Critic2(self.input_shape, self.layer_sizes, self.hidden_activation, self.output_activation)
+		t_network.network1.set_weights(self.network1.get_weights())
+		t_network.network2.set_weights(self.network2.get_weights())
+
+		return t_network
+
+	@staticmethod
+	def soft_update_network(critic, critic_target, tau):
+		theta_Q1 = np.asarray(critic.network1.get_weights(), dtype=object)
+		theta_Q1prime = np.asarray(critic_target.network1.get_weights(), dtype=object)
+		theta_Q2 = np.asarray(critic.network2.get_weights(), dtype=object)
+		theta_Q2prime = np.asarray(critic_target.network2.get_weights(), dtype=object)
+
+		critic_target.network1.set_weights(tau*theta_Q1 + (1-tau)*theta_Q1prime)
+		critic_target.network2.set_weights(tau*theta_Q2 + (1-tau)*theta_Q2prime)
+
+	def Q1(self, x):
+		return self.network1(x)

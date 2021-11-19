@@ -1,6 +1,6 @@
-import numpy as np
 from copy import deepcopy as dc
 import random
+import numpy as np
 
 
 class Memory:

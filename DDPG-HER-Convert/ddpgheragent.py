@@ -1,6 +1,8 @@
 import pickle
+import json
 import tensorflow as tf
 import numpy as np
+from tensorflow.keras.models import model_from_json
 from models import Actor, Critic
 from memory import Memory
 from mpi4py import MPI
@@ -142,7 +144,7 @@ class DDPGHAgent:
 		self.critic.network = tf.keras.models.load_model("FPP-Checkpoint/Critic")
 		self.critic_target.network = tf.keras.models.load_model("FPP-Checkpoint/CriticT")
 
-		with open('FPP-Pretrained/Params', 'rb') as inp:
+		with open('FPP-Checkpoint/Params', 'rb') as inp:
 			loadDict = pickle.load(inp)
 
 			self.state_normalizer.mean = loadDict['state_normalizer_mean']
@@ -151,7 +153,7 @@ class DDPGHAgent:
 			self.goal_normalizer.std = loadDict['goal_normalizer_std']
 			epoch = loadDict['epoch']
 
-		return epoch
+		# return epoch
 
 	# Save actor network and normalizer parameters
 	def save_weights(self):

@@ -1,23 +1,24 @@
 import os
 import time
 import random
+from copy import deepcopy as dc
 import psutil
 import gym
 import mujoco_py
-from copy import deepcopy as dc
 import numpy as np
 import tensorflow as tf
 from tensorflow.summary import SummaryWriter
 import matplotlib.pyplot as plt
 from mpi4py import MPI
-from agent import Agent
+from ddpgheragent import DDPGHAgent
+from td3agent import TD3Agent
 from play import Play
 
 ENV_NAME        = "FetchPickAndPlace-v1"
-INTRO           = False
-Train           = True
-Play_FLAG       = False
-MAX_EPOCHS      = 50
+AGENT_NAME      = "DDPGH"    # Edit to DDPGH/TD3 to use respective algo
+Train           = False
+Play_FLAG       = True
+MAX_EPOCHS      = 35
 MAX_CYCLES      = 50
 num_updates     = 40
 MAX_EPISODES    = 2
@@ -57,7 +58,6 @@ def eval_agent(env_, agent_):
             g = env_dictionary["desired_goal"]
         ep_r = 0
         for t in range(50):
-            # with torch.no_grad():
             a = agent_.choose_action(s, g, train_mode=False)
             observation_new, r, _, info_ = env_.step(a)
             s = observation_new['observation']
@@ -74,55 +74,58 @@ def eval_agent(env_, agent_):
     global_success_rate = MPI.COMM_WORLD.allreduce(local_success_rate, op=MPI.SUM)
     return global_success_rate / MPI.COMM_WORLD.Get_size(), running_r, ep_r
 
-
-if INTRO:
-    print(f"state_shape:{state_shape[0]}\n"
-          f"number of actions:{n_actions}\n"
-          f"action boundaries:{action_bounds}\n"
-          f"max timesteps:{test_env._max_episode_steps}")
-    for _ in range(3):
-        done = False
-        test_env.reset()
-        while not done:
-            action = test_env.action_space.sample()
-            test_state, test_reward, test_done, test_info = test_env.step(action)
-            # substitute_goal = test_state["achieved_goal"].copy()
-            # substitute_reward = test_env.compute_reward(
-            #     test_state["achieved_goal"], substitute_goal, test_info)
-            # print("r is {}, substitute_reward is {}".format(r, substitute_reward))
-            test_env.render()
-    exit(0)
-
 env = gym.make(ENV_NAME)
 env.seed(MPI.COMM_WORLD.Get_rank())
 random.seed(MPI.COMM_WORLD.Get_rank())
 np.random.seed(MPI.COMM_WORLD.Get_rank())
 tf.random.set_seed(MPI.COMM_WORLD.Get_rank())
 
-agent = Agent(num_states    = state_shape,
-              num_actions   = n_actions,
-              num_goals     = n_goals,
-              action_bounds = action_bounds,
-              mem_size      = memory_size,
-              action_size   = n_actions,
-              batch_size    = batch_size,
-              actor_lr      = actor_lr,
-              critic_lr     = critic_lr,
-              gamma         = gamma,
-              tau           = tau,
-              k_future      = k_future,
-              env           = dc(env))
+if AGENT_NAME == "DDPGH":
+    MAX_EPISODES    = 2
+    agent = DDPGHAgent(num_states    = state_shape,
+                      num_actions   = n_actions,
+                      num_goals     = n_goals,
+                      action_bounds = action_bounds,
+                      mem_size      = memory_size,
+                      action_size   = n_actions,
+                      batch_size    = batch_size,
+                      actor_lr      = actor_lr,
+                      critic_lr     = critic_lr,
+                      gamma         = gamma,
+                      tau           = tau,
+                      k_future      = k_future,
+                      env           = dc(env))
+
+elif AGENT_NAME == "TD3":
+    MAX_EPISODES    = 1
+    agent = TD3Agent(num_states    = state_shape,
+                     num_actions   = n_actions,
+                     num_goals     = n_goals,
+                     action_bounds = action_bounds,
+                     mem_size      = memory_size,
+                     action_size   = n_actions,
+                     batch_size    = batch_size,
+                     actor_lr      = actor_lr,
+                     critic_lr     = critic_lr,
+                     gamma         = gamma,
+                     tau           = tau,
+                     k_future      = k_future,
+                     env           = dc(env))
+
+else:
+    raise RuntimeError("Please input either 'DDPGH' or 'TD3' under 'AGENT_NAME'.")
+
 if Train:
     t_success_rate = []
-    total_ac_loss = []
-    total_cr_loss = []
+    total_ac_loss  = []
+    total_cr_loss  = []
     for epoch in range(MAX_EPOCHS):
-        start_time = time.time()
-        epoch_actor_loss = 0
+        start_time        = time.time()
+        epoch_actor_loss  = 0
         epoch_critic_loss = 0
         for cycle in range(0, MAX_CYCLES):
             mb = []
-            cycle_actor_loss = 0
+            cycle_actor_loss  = 0
             cycle_critic_loss = 0
             for episode in range(MAX_EPISODES):
                 episode_dict = {
@@ -145,7 +148,7 @@ if Train:
                 for t in range(50):
                     action = agent.choose_action(state, desired_goal)
                     next_env_dict, reward, done, info = env.step(action)
-                    #env.render()
+
                     next_state = next_env_dict["observation"]
                     next_achieved_goal = next_env_dict["achieved_goal"]
                     next_desired_goal = next_env_dict["desired_goal"]
@@ -167,10 +170,14 @@ if Train:
                 mb.append(dc(episode_dict))
 
             agent.store_transition(mb)
-            for n_update in range(num_updates):
-                actor_loss, critic_loss = agent.train()
-                cycle_actor_loss += actor_loss
-                cycle_critic_loss += critic_loss
+
+            if AGENT_NAME == 'TD3':
+                actor_loss, critic_loss, cycle_actor_loss, cycle_critic_loss = agent.train(num_updates=num_updates)
+            elif AGENT_NAME == 'DDPGH':
+                for n_update in range(num_updates):
+                    actor_loss, critic_loss = agent.train()
+                    cycle_actor_loss += actor_loss
+                    cycle_critic_loss += critic_loss
 
             epoch_actor_loss += cycle_actor_loss / num_updates
             epoch_critic_loss += cycle_critic_loss /num_updates
@@ -191,21 +198,26 @@ if Train:
                   f"Critic_Loss:{critic_loss:.3f}| "
                   f"Success rate:{success_rate:.3f}| "
                   f"{to_gb(ram.used):.1f}/{to_gb(ram.total):.1f} GB RAM")
+            
             if epoch%5 == 0:
                 agent.save_checkpoint(epoch)
             
+            agent.save_checkpoint(epoch)
             agent.save_weights()
 
 
     if MPI.COMM_WORLD.Get_rank() == 0:
 
-        with SummaryWriter("logs") as writer:
+        writer = tf.summary.create_file_writer("/tmp/mylogs")
+
+        with writer.as_default(step=10):
             for i, success_rate in enumerate(t_success_rate):
-                writer.add_scalar("Success_rate", success_rate, i)
+                tf.summary.scalar("Success_rate", success_rate, i)
 
         plt.style.use('ggplot')
         plt.figure()
-        plt.plot(np.arange(0, MAX_EPOCHS), t_success_rate)
+        plt.plot(np.arange(0+50, MAX_EPOCHS+50), t_success_rate)
+        # plt.plot(np.arange(0, MAX_EPOCHS), t_success_rate)
         plt.title("Success rate")
         plt.savefig("success_rate.png")
         plt.show()
