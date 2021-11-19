@@ -19,12 +19,39 @@ pip3 install -r requirements.txt
 ```
 
 ## 4. Usage Guide
-Run the following command.
+
+### 4.1 To Train the Strawberry Picker
+1. Navigate to the file below and open it with a text editor of your choice.
+```shell
+nano ME5046/main.py
+```
+2. Change the following parameters as shown below.
+```shell
+Train         = True
+Play_FLAG     = False 
+```
+3. Run the following command.
 ```shell
 mpirun -np $(nproc) python3 -u main.py
 ```
 
-## 5. Demo
+### 4.2. To Watch the Trained Strawberry Picker
+1. Navigate to the file below and open it with a text editor of your choice.
+```shell
+nano ME5046/main.py
+```
+2. Change the following parameters as shown below.
+```shell
+Train         = False
+Play_FLAG     = True 
+```
+3. Run the following command.
+```shell
+python3 main.py
+```
+
+## 5. Demo of Trained Strawberry Picker
+The GIF shows the trained strawberry picker putting the strawberries into the basket.
 <p align="center">
   <img src="Demo/FetchPickAndPlace.gif" height=250>
 </p>  
