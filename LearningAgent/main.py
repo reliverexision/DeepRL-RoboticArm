@@ -201,8 +201,9 @@ if Train:
             
             if epoch%5 == 0:
                 agent.save_checkpoint(epoch)
-            
-            agent.save_checkpoint(epoch)
+            elif epoch==MAX_EPOCHS-1:
+                agent.save_checkpoint(epoch)
+                
             agent.save_weights()
 
 
@@ -216,8 +217,7 @@ if Train:
 
         plt.style.use('ggplot')
         plt.figure()
-        plt.plot(np.arange(0+50, MAX_EPOCHS+50), t_success_rate)
-        # plt.plot(np.arange(0, MAX_EPOCHS), t_success_rate)
+        plt.plot(np.arange(0, MAX_EPOCHS), t_success_rate)
         plt.title("Success rate")
         plt.savefig("success_rate.png")
         plt.show()

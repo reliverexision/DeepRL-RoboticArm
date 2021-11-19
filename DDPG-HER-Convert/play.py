@@ -51,8 +51,8 @@ class Play:
                     desired_goal = next_desired_goal.copy()
                     I = self.env.render(mode="human")  # mode = "rgb_array
                     
-                    if state[3]>=0.3 and state[3]<=0.98 and state[4]>=0.4 and state[4]<=1.1 and state[5]<=0.6:
-                        done = True
+                    # if state[3]>=0.5 and state[3]<=0.8 and state[4]>=0.6 and state[4]<=0.9 and state[5]<=0.6:
+                    #     done = True
                     
                 
                 done = False

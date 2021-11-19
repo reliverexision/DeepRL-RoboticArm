@@ -15,9 +15,9 @@ from td3agent import TD3Agent
 from play import Play
 
 ENV_NAME        = "FetchPickAndPlace-v1"
-AGENT_NAME      = "DDPGH"    # Edit to DDPGH/TD3 to use respective algo
-Train           = False
-Play_FLAG       = True
+AGENT_NAME      = "TD3"    # Edit to DDPGH/TD3 to use respective algo
+Train           = True
+Play_FLAG       = False
 MAX_EPOCHS      = 35
 MAX_CYCLES      = 50
 num_updates     = 40
