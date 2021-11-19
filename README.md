@@ -63,8 +63,9 @@ The GIF shows the trained strawberry picker putting the strawberries into the ba
 1. [_Continuous control with deep reinforcement learning_, Lillicrap et al., 2015](https://arxiv.org/abs/1509.02971)  
 2. [_Hindsight Experience Replay_, Andrychowicz et al., 2017](https://arxiv.org/abs/1707.01495)
 3. [_Addressing Function Approximation Error in Actor-Critic Methods_, Fujimoto et al., 2018](https://arxiv.org/pdf/1802.09477.pdf)
-4. [_Multi-Goal Reinforcement Learning: Challenging Robotics Environments and Request for Research_, Plappert et al., 2018](https://arxiv.org/abs/1802.09464)  
-## Acknowledgement
-Credit goes to [@alirezakazemipour](https://github.com/alirezakazemipour) for [his original implementation in PyTorch](https://github.com/alirezakazemipour/DDPG-HER) of [@TianhongDai's](https://github.com/TianhongDai) [simplified implementation of HER](https://github.com/TianhongDai/hindsight-experience-replay) of [the original OpenAI's code](https://github.com/openai/baselines/tree/master/baselines/her).
+4. [_Multi-Goal Reinforcement Learning: Challenging Robotics Environments and Request for Research_, Plappert et al., 2018](https://arxiv.org/abs/1802.09464)
+5. [_Deep Deterministic Policy Gradient (DDPG): Theory and Implementation_, Guha, 2020](https://towardsdatascience.com/deep-deterministic-policy-gradient-ddpg-theory-and-implementation-747a3010e82f)
+6. [_TD3: Learning To Run With AI_, Byrne, 2019](https://towardsdatascience.com/td3-learning-to-run-with-ai-40dfc512f93)
 
-Credit also goes to Donal Byrne from [Towards Data Science for his guide on implementing TD3](https://towardsdatascience.com/td3-learning-to-run-with-ai-40dfc512f93).
+## 7. Acknowledgements
+Credit goes to [@alirezakazemipour](https://github.com/alirezakazemipour) for [his original implementation in PyTorch](https://github.com/alirezakazemipour/DDPG-HER) of [@TianhongDai's](https://github.com/TianhongDai) [simplified implementation of HER](https://github.com/TianhongDai/hindsight-experience-replay) of [the original OpenAI's code](https://github.com/openai/baselines/tree/master/baselines/her).
