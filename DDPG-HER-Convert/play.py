@@ -50,11 +50,9 @@ class Play:
                     state = next_state.copy()
                     desired_goal = next_desired_goal.copy()
                     I = self.env.render(mode="human")  # mode = "rgb_array
-                    # self.env.viewer.cam.type = const.CAMERA_FREE
-                    # self.env.viewer.cam.fixedcamid = 0
-                    # I = cv2.cvtColor(I, cv2.COLOR_RGB2BGR)
-                    # cv2.imshow("I", I)
-                    # cv2.waitKey(2)
+                    
+                    if state[3]>=0.3 and state[3]<=0.98 and state[4]>=0.4 and state[4]<=1.1 and state[5]<=0.6:
+                        done = True
                     
                 
                 done = False
