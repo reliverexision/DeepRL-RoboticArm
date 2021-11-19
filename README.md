@@ -4,6 +4,7 @@
 This project aims to implement and compare the performance of Deep Deterministic Policy Gradient (DDPG) and Twin Delayed DDPG (TD3) with Hindsight Experience Replay (HER) Extension using an edited  MuJoCo's robotic FetchPickAndPlace environment to pick strawberries.
 
 ## 2. Installation Guide
+This project requires the use of MuJoCo. Please follow the installation instructions found [here](https://github.com/openai/mujoco-py) to install.
 ```shell
 pip3 install -r requirements.txt
 ```
@@ -65,4 +66,5 @@ The GIF shows the trained strawberry picker putting the strawberries into the ba
 4. [_Multi-Goal Reinforcement Learning: Challenging Robotics Environments and Request for Research_, Plappert et al., 2018](https://arxiv.org/abs/1802.09464)  
 ## Acknowledgement
 Credit goes to [@alirezakazemipour](https://github.com/alirezakazemipour) for [his original implementation in PyTorch](https://github.com/alirezakazemipour/DDPG-HER) of [@TianhongDai's](https://github.com/TianhongDai) [simplified implementation of HER](https://github.com/TianhongDai/hindsight-experience-replay) of [the original OpenAI's code](https://github.com/openai/baselines/tree/master/baselines/her).
+
 Credit also goes to Donal Byrne from [Towards Data Science for his guide on implementing TD3](https://towardsdatascience.com/td3-learning-to-run-with-ai-40dfc512f93).
