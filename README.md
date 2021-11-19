@@ -1,4 +1,4 @@
-# DDPG+HER & TD3+HER on FetchPickAndPlace to Pick Strawberries
+# DDPG+HER & TD3+HER to pick Strawberries
 
 ## 1. Introduction
 This project aims to implement and compare the performance of Deep Deterministic Policy Gradient (DDPG) and Twin Delayed DDPG (TD3) with Hindsight Experience Replay Extension using an edited  MuJoCo's robotic FetchPickAndPlace environment to pick strawberries.
